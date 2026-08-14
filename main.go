@@ -12,8 +12,14 @@ import (
 var CLI commands.Args
 
 func main() {
-	ctx := kong.Parse(&CLI)
-	err := ctx.Run()
+	kongCtx := kong.Parse(&CLI)
+	packageCtx, err := CLI.GetContext()
+	if err != nil {
+		fmt.Println("An error occurred:", err)
+		os.Exit(1)
+	}
+
+	err = kongCtx.Run(packageCtx)
 
 	if err != nil {
 		fmt.Println("An error occurred:", err)

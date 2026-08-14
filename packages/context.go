@@ -1,64 +1,35 @@
 package packages
 
 import (
-	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
+	"os/user"
 )
 
 type Context struct {
-	Path     string   // The project's base path, the directory where the `Nye.toml` manifest is located.
-	Manifest Manifest // The unmarshaled manifest of the project.
+	Path      string      // The path to the namespace directory where to work. This will be `/` for `--system` executions, `/usr/{username}` otherwise.
+	DirPerms  os.FileMode // Permissions to create directories with.
+	FilePerms os.FileMode // Permissions to create files with.
 }
 
-// Gets the current working directory's context.
-func GetContext() (Context, error) {
-	dir, err := os.Getwd()
-	if err != nil {
-		return Context{}, fmt.Errorf("could not get current working directory for package context: %v", err)
+func GetContext(isSystem bool) (Context, error) {
+	isRoot := os.Geteuid() == 0
+
+	if isSystem && !isRoot {
+		return Context{}, fmt.Errorf("cannot run command as system without being root")
 	}
 
-	for {
-		guessedManifestPath := filepath.Join(dir, "Nye.toml")
-		exists, err := exists(guessedManifestPath)
-		if err != nil {
-			return Context{}, fmt.Errorf("could not check if `Nye.toml` manifest existed in directory: %v", err)
-		}
-
-		if exists {
-			manifest, err := GetManifest(guessedManifestPath)
-			if err != nil {
-				return Context{}, fmt.Errorf("could not read `Nye.toml` manifest for package context: %v", err)
-			}
-
-			return Context{
-				Path:     dir,
-				Manifest: manifest,
-			}, nil
-		}
-
-		parent := filepath.Dir(dir)
-
-		if parent == dir {
-			break
-		}
+	user, err := user.Current()
+	if err != nil {
+		return Context{}, fmt.Errorf("could not get current user")
 	}
 
-	return Context{}, errors.New("no `Nye.toml` manifest was found in this directory nor in any of its parents")
-}
+	systemPath := "/"
+	userPath := fmt.Sprintf("/usr/%v", user.Username)
 
-// Checks if a file or a directory exists.
-func exists(path string) (bool, error) {
-	_, err := os.Stat(path)
-
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return false, nil
-		} else {
-			return false, fmt.Errorf("could not check if file or directory existed: %v", err)
-		}
+	if isSystem {
+		return Context{Path: systemPath, DirPerms: 0o755, FilePerms: 0o744}, nil
 	} else {
-		return true, nil
+		return Context{Path: userPath, DirPerms: 0o700, FilePerms: 0o700}, nil
 	}
 }
