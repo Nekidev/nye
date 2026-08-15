@@ -103,6 +103,10 @@ func GetManifestFromZip(path string) (Manifest, error) {
 }
 
 func validateManifest(manifest Manifest, zipper *zip.ReadCloser) error {
+	if err := utils.ValidateStruct(manifest); err != nil {
+		return err
+	}
+
 	if err := validateManifestExposedBins(manifest, zipper); err != nil {
 		return err
 	}
