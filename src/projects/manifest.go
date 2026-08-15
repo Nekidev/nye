@@ -2,6 +2,7 @@ package projects
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -50,8 +51,8 @@ func (exposes *ManifestExposes) ForTarget(target string) ManifestExposes {
 }
 
 type ManifestExposesBinary struct {
-	Name string `toml:"name" validate:"required,min=1,max=32,safe-path-segment"`
-	Path string `toml:"path" validate:"safe-path"`
+	Name    string   `toml:"name" validate:"required,min=1,max=32,safe-path-segment"`
+	Path    string   `toml:"path" validate:"safe-path"`
 	Targets []string `toml:"targets" validate:"unique,dive,supported-target"`
 }
 
@@ -70,6 +71,11 @@ func GetManifest(path string) (Manifest, error) {
 	err = utils.ValidateStruct(&manifest)
 	if err != nil {
 		return Manifest{}, fmt.Errorf("manifest was not valid: %v", err)
+	}
+
+	err = validateTargets(path, manifest)
+	if err != nil {
+		return Manifest{}, fmt.Errorf("failed to validate targets: %v", err)
 	}
 
 	err = validateExposedBins(path, manifest)
@@ -94,28 +100,46 @@ func SetManifest(path string, content Manifest) error {
 	return nil
 }
 
+func validateTargets(path string, manifest Manifest) error {
+	for target, meta := range manifest.Targets {
+		exists, err := utils.Exists(meta.Source)
+		if err != nil {
+			return fmt.Errorf("an error occurred while checking if `%v` existed: %v", meta.Source, err)
+		}
+		if !exists {
+			return fmt.Errorf("the source directory for target `%v` (`%v`) does not exist", target, meta.Source)
+		}
+	}
+
+	return nil
+}
+
 func validateExposedBins(path string, manifest Manifest) error {
 	dir, _ := filepath.Split(path)
 
-	exposedNames := []string{}
+	targets := slices.Collect(maps.Keys(manifest.Targets))
 
 	for _, bin := range manifest.Exposes.Bin {
-		if slices.Contains(exposedNames, bin.Name) {
-			return fmt.Errorf("there are two or more exposed binaries with the name `%v`, only one binary can be exposed per name", bin.Name)
-		}
-		exposedNames = append(exposedNames, bin.Name)
-
 		if bin.Path == "" {
 			bin.Path = bin.Name
 		}
 
-		binPath := filepath.Join(dir, "src", "bin", bin.Path)
-		stat, err := os.Stat(binPath)
-		if err != nil {
-			return fmt.Errorf("could not validate exposed binary `%v`: %v", binPath, err)
-		} else {
-			if stat.IsDir() {
-				return fmt.Errorf("the directory `%v` cannot be exposed as a binary", binPath)
+		if len(bin.Targets) == 0 {
+			bin.Targets = targets
+		}
+
+		for _, target := range bin.Targets {
+			if !slices.Contains(targets, target) {
+				return fmt.Errorf("an exposed binary (`%v`) specifies a target (`%v`) not supported by this package", bin.Name, target)
+			}
+
+			sourcePath := filepath.Join(manifest.Targets[target].Source, "bin", bin.Path)
+			exists, err := utils.Exists(filepath.Join(dir, sourcePath))
+			if err != nil {
+				return fmt.Errorf("could not check if exposed binary `%v` existed in `%v`", bin.Name, sourcePath)
+			}
+			if !exists {
+				return fmt.Errorf("the exposed binary `%v` does not exist in `%v`. if intentional, select the binary's targets with `exposes.bin.targets`", bin.Name, sourcePath)
 			}
 		}
 	}
