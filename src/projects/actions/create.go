@@ -31,7 +31,7 @@ func CreatePackage(name string, path string) error {
 			Version: "0.1.0",
 		},
 	}
-	manifestPath := filepath.Join(path, "Nye.toml")
+	manifestPath := filepath.Join(path, "nye.toml")
 	err := projects.SetManifest(manifestPath, manifest)
 	if err != nil {
 		return fmt.Errorf("could not set manifest: %v", err)

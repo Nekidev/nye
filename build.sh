@@ -1,1 +1,1 @@
-go build -trimpath -ldflags="-s -w" -o dist/nye .
+go build -C src -trimpath -ldflags="-s -w" -o dist/nye .

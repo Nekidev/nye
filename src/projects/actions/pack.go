@@ -13,7 +13,7 @@ import (
 // Packs a package project.
 //
 // Arguments:
-// * `path` - The directory where the `Nye.toml` manifest is located.
+// * `path` - The directory where the `nye.toml` manifest is located.
 //
 // Returns:
 // * `string` - The path to the packaged pack relative to the current working directory.
@@ -40,7 +40,7 @@ func PackPackage(path string) (string, error) {
 	zipWriter := zip.NewWriter(zipFile)
 	defer zipWriter.Close()
 
-	err = putFileInZip(zipWriter, filepath.Join(ctx.Path, "Nye.toml"), "package.toml")
+	err = putFileInZip(zipWriter, filepath.Join(ctx.Path, "nye.toml"), "package.toml")
 	if err != nil {
 		return "", fmt.Errorf("could not put manifest in zip file: %v", err)
 	}
