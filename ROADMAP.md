@@ -5,8 +5,8 @@ Commands for MVP:
 - nye dev install: Installs the current package project.
 - nye dev uninstall: Uninstalls the current package project.
 
-- nye install
-- nye uninstall
+- DONE nye install
+- DONE nye uninstall
 
 
 Filesystem:
