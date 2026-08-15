@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
@@ -25,10 +26,11 @@ import (
 func ValidateStruct(s interface{}) error {
 	validate := validator.New()
 
-	validate.RegisterValidation("kebabCase", IntoValidator(IsKebabCase))
+	validate.RegisterValidation("kebab-case", IntoValidator(IsKebabCase))
 	validate.RegisterValidation("semver", IntoValidator(IsSemver))
-	validate.RegisterValidation("isSafePath", IntoValidator(IsSafePath))
-	validate.RegisterValidation("isSafePathSegment", IntoValidator(IsSafePathSegment))
+	validate.RegisterValidation("safe-path", IntoValidator(IsSafePath))
+	validate.RegisterValidation("safe-path-segment", IntoValidator(IsSafePathSegment))
+	validate.RegisterValidation("supported-target", IntoValidator(IsSupportedTarget))
 
 	return validate.Struct(s)
 }
@@ -118,4 +120,8 @@ func IsSafePathSegment(value string) bool {
 	}
 
 	return true
+}
+
+func IsSupportedTarget(value string) bool {
+	return slices.Contains(SupportedTargets, value)
 }

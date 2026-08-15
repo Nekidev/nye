@@ -8,13 +8,14 @@ import (
 
 	"github.com/lithammer/dedent"
 	"nyeki.dev/nye/projects"
+	"nyeki.dev/nye/utils"
 )
 
 // Initializes a package project with the specified name in the specified directory.
 func CreatePackage(name string, path string) error {
 	dirs := []string{
 		path,
-		filepath.Join(path, "src/bin"),
+		filepath.Join(path, "src", utils.GetCurrentTarget(), "bin"),
 		filepath.Join(path, "dist"),
 	}
 
@@ -29,6 +30,11 @@ func CreatePackage(name string, path string) error {
 		Package: projects.ManifestPackage{
 			Name:    name,
 			Version: "0.1.0",
+		},
+		Targets: projects.ManifestTargets{
+			utils.GetCurrentTarget(): projects.ManifestTarget{
+				Source: filepath.Join("src", utils.GetCurrentTarget()),
+			},
 		},
 	}
 	manifestPath := filepath.Join(path, "nye.toml")

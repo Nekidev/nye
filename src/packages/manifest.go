@@ -9,6 +9,7 @@ import (
 	"slices"
 
 	"github.com/pelletier/go-toml/v2"
+	"nyeki.dev/nye/projects"
 	"nyeki.dev/nye/utils"
 )
 
@@ -19,23 +20,27 @@ type Manifest struct {
 }
 
 type ManifestPackage struct {
-	Name    string `toml:"name" validate:"required,kebabCase,min=1,max=32"`
+	Name    string `toml:"name" validate:"required,kebab-case,min=1,max=32"`
 	Version string `toml:"version" validate:"required,semver,max=32"`
+	Target  string `toml:"target" validate:"required,supported-target"`
 }
 
 type ManifestExposes struct {
 	// Exposed symlinks on installation to the package's bundled binaries
-	Bin []ManifestExposesBinary `toml:"bin"`
+	Bin []ManifestExposesBinary `toml:"bin" validate:"unique=Name"`
 }
 
 type ManifestExposesBinary struct {
-	Name string `toml:"name" validate:"required,min=1,max=32,safePathSegment"`
-	Path string `toml:"path" validate:"required,min=1,safePath"`
+	Name string `toml:"name" validate:"required,min=1,max=32,safe-path-segment"`
+	Path string `toml:"path" validate:"required,min=1,safe-path"`
 }
 
 // Reads a manifest from a file in the system.
 //
-// Unlike `GetManifestFromZip()`, this function does not validate the manifest.
+// Unlike `GetManifestFromZip()`, this function does not validate the manifest on system data.
+// The validation is done on syntax and individual values only. This is due this function being
+// intended to be used on already-installed packages, whose manifests have already been validated
+// by `GetManifestFromZip()`.
 //
 // Arguments:
 // * `path` - The path to the manifest file.
@@ -148,4 +153,32 @@ func validateManifestExposedBins(manifest Manifest, zipper *zip.ReadCloser) erro
 	}
 
 	return nil
+}
+
+func FromProjectManifest(manifest projects.Manifest, target string) Manifest {
+	bins := []ManifestExposesBinary{}
+
+	for _, bin := range manifest.Exposes.ForTarget(target).Bin {
+		if bin.Path == "" {
+			bin.Path = bin.Name
+		}
+
+		bins = append(bins, ManifestExposesBinary{
+			Name: bin.Name,
+			Path: bin.Path,
+		})
+	}
+
+	result := Manifest{
+		Package: ManifestPackage{
+			Name:    manifest.Package.Name,
+			Version: manifest.Package.Version,
+			Target:  target,
+		},
+		Exposes: ManifestExposes{
+			Bin: bins,
+		},
+	}
+
+	return result
 }

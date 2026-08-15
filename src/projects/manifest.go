@@ -13,22 +13,46 @@ import (
 // A nye.toml manifest.
 type Manifest struct {
 	Package ManifestPackage `toml:"package" validate:"required"`
+	Targets ManifestTargets `toml:"targets" validate:"required,unique,dive,keys,supported-target,endkeys"`
 	Exposes ManifestExposes `toml:"exposes"`
 }
 
 type ManifestPackage struct {
-	Name    string `toml:"name" validate:"required,min=1,max=32,kebabCase"`
+	Name    string `toml:"name" validate:"required,min=1,max=32,kebab-case"`
 	Version string `toml:"version" validate:"required,semver,max=32"`
+}
+
+type ManifestTargets map[string]ManifestTarget
+
+type ManifestTarget struct {
+	Source string `toml:"source" validate:"safe-path"`
 }
 
 type ManifestExposes struct {
 	// Exposed symlinks on installation to the package's bundled binaries
-	Bin []ManifestExposesBinary `toml:"bin"`
+	Bin []ManifestExposesBinary `toml:"bin" validate:"unique=Name"`
+}
+
+func (exposes *ManifestExposes) ForTarget(target string) ManifestExposes {
+	bins := []ManifestExposesBinary{}
+
+	for _, bin := range exposes.Bin {
+		if len(bin.Targets) > 0 {
+			if slices.Contains(bin.Targets, target) {
+				bins = append(bins, bin)
+			}
+		} else {
+			bins = append(bins, bin)
+		}
+	}
+
+	return ManifestExposes{Bin: bins}
 }
 
 type ManifestExposesBinary struct {
-	Name string `toml:"name" validate:"required,min=1,max=32,safePathSegment"`
-	Path string `toml:"path" validate:"safePath"`
+	Name string `toml:"name" validate:"required,min=1,max=32,safe-path-segment"`
+	Path string `toml:"path" validate:"safe-path"`
+	Targets []string `toml:"targets" validate:"unique,dive,supported-target"`
 }
 
 func GetManifest(path string) (Manifest, error) {

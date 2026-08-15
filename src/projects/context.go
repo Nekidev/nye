@@ -40,6 +40,8 @@ func GetContext(dir string) (Context, error) {
 		if parent == dir {
 			break
 		}
+
+		dir = parent
 	}
 
 	return Context{}, errors.New("no `nye.toml` manifest was found in this directory nor in any of its parents")

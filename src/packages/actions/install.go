@@ -20,6 +20,10 @@ func InstallPackage(ctx packages.Context, path string) (packages.Manifest, error
 		return packages.Manifest{}, fmt.Errorf("could not get package manifest: %v", err)
 	}
 
+	if manifest.Package.Target != utils.GetCurrentTarget() {
+		return packages.Manifest{}, fmt.Errorf("the package was bundled for the target %v, but your system is %v", manifest.Package.Target, utils.GetCurrentTarget())
+	}
+
 	collides, err := checkPackageVersionCollision(ctx, manifest)
 	if err != nil {
 		return packages.Manifest{}, fmt.Errorf("could not check for package installation collisions: %v", err)
