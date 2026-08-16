@@ -19,3 +19,10 @@ Filesystem:
 - /usr/{username}/pkg: User-specific packages
 - /usr/{username}/pkg/tmp: User-specific temporary package data (e.g. extraction)
 - /usr/{username}/pkg/packages: User-installed package data
+
+
+Registry:
+
+-  GET /v1/packages
+- POST /v1/packages
+-  GET /v1/packages/{package_id}/versions/{version_id}
