@@ -15,8 +15,9 @@ import (
 
 // A nye.toml manifest.
 type Manifest struct {
-	Package ManifestPackage `toml:"package"`
-	Exposes ManifestExposes `toml:"exposes"`
+	Package  ManifestPackage  `toml:"package"`
+	Exposes  ManifestExposes  `toml:"exposes"`
+	Consumes ManifestConsumes `toml:"consumes"`
 }
 
 type ManifestPackage struct {
@@ -26,13 +27,27 @@ type ManifestPackage struct {
 }
 
 type ManifestExposes struct {
-	// Exposed symlinks on installation to the package's bundled binaries
-	Bin []ManifestExposesBinary `toml:"bin" validate:"unique=Name"`
+	Bin []ManifestExposesBin `toml:"bin" validate:"unique=Name"` // Exposed symlinks on installation to the package's bundled binaries
+	Env []ManifestExposesEnv `toml:"env" validate:"unique=Name"` // Exposed environment variables. They're not set to the system's env vars.
 }
 
-type ManifestExposesBinary struct {
+type ManifestExposesBin struct {
 	Name string `toml:"name" validate:"required,min=1,max=32,safe-path-segment"`
 	Path string `toml:"path" validate:"required,min=1,safe-path"`
+}
+
+type ManifestExposesEnv struct {
+	Name  string `toml:"name" validate:"required,min=1,max=32,env-var-name"`
+	Value string `toml:"value" validate:"required,max=1024"`
+}
+
+type ManifestConsumes struct {
+	Env []ManifestConsumesEnv `toml:"name" validate:"unique=Name"`
+}
+
+type ManifestConsumesEnv struct {
+	Name      string `toml:"name" validate:"required,min=1,max=32,env-var-name"`
+	Separator string `toml:"separator" validate:"required,max=32"`
 }
 
 // Reads a manifest from a file in the system.
@@ -156,16 +171,34 @@ func validateManifestExposedBins(manifest Manifest, zipper *zip.ReadCloser) erro
 }
 
 func FromProjectManifest(manifest projects.Manifest, target string) Manifest {
-	bins := []ManifestExposesBinary{}
+	exposedBins := []ManifestExposesBin{}
+	exposedEnvs := []ManifestExposesEnv{}
+	consumedEnvs := []ManifestConsumesEnv{}
 
-	for _, bin := range manifest.Exposes.ForTarget(target).Bin {
+	exposedForTarget := manifest.Exposes.ForTarget(target)
+
+	for _, bin := range exposedForTarget.Bin {
 		if bin.Path == "" {
 			bin.Path = bin.Name
 		}
 
-		bins = append(bins, ManifestExposesBinary{
+		exposedBins = append(exposedBins, ManifestExposesBin{
 			Name: bin.Name,
 			Path: bin.Path,
+		})
+	}
+
+	for _, env := range exposedForTarget.Env {
+		exposedEnvs = append(exposedEnvs, ManifestExposesEnv{
+			Name:  env.Name,
+			Value: env.Value,
+		})
+	}
+
+	for _, env := range manifest.Consumes.Env {
+		consumedEnvs = append(consumedEnvs, ManifestConsumesEnv{
+			Name:      env.Name,
+			Separator: env.Separator,
 		})
 	}
 
@@ -176,7 +209,11 @@ func FromProjectManifest(manifest projects.Manifest, target string) Manifest {
 			Target:  target,
 		},
 		Exposes: ManifestExposes{
-			Bin: bins,
+			Bin: exposedBins,
+			Env: exposedEnvs,
+		},
+		Consumes: ManifestConsumes{
+			Env: consumedEnvs,
 		},
 	}
 

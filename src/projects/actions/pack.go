@@ -10,6 +10,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"nyeki.dev/nye/packages"
 	"nyeki.dev/nye/projects"
+	"nyeki.dev/nye/utils"
 )
 
 // Packs a project into a target-specific package.
@@ -54,6 +55,8 @@ func PackProject(ctx projects.Context, targetString string) (string, error) {
 
 // Creates a zip file.
 //
+// If the file already exists, it deletes it and recreates it.
+//
 // Arguments:
 // * `ctx` - The packages context.
 // * `targetString` - The target to create the zip file for.
@@ -70,6 +73,17 @@ func createZipper(ctx projects.Context, targetString string) (*zip.Writer, strin
 	}
 
 	zipName := filepath.Join(distDir, fmt.Sprintf("nye-%v-v%v-for-%v-pack.zip", ctx.Manifest.Package.Name, ctx.Manifest.Package.Version, targetString))
+	exists, err := utils.Exists(zipName)
+	if err != nil {
+		return nil, "", fmt.Errorf("could not check if pack file existed: %v", err)
+	}
+	if exists {
+		err = os.Remove(zipName)
+		if err != nil {
+			return nil, "", fmt.Errorf("could not remove existing pack file: %v", err)
+		}
+	}
+	
 	zipFile, err := os.Create(zipName)
 	if err != nil {
 		return nil, "", fmt.Errorf("could not create pack file: %v", err)

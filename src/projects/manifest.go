@@ -13,9 +13,10 @@ import (
 
 // A nye.toml manifest.
 type Manifest struct {
-	Package ManifestPackage `toml:"package" validate:"required"`
-	Targets ManifestTargets `toml:"targets" validate:"required,unique,dive,keys,supported-target,endkeys"`
-	Exposes ManifestExposes `toml:"exposes"`
+	Package  ManifestPackage  `toml:"package" validate:"required"`
+	Targets  ManifestTargets  `toml:"targets" validate:"required,unique,dive,keys,supported-target,endkeys"`
+	Exposes  ManifestExposes  `toml:"exposes"`
+	Consumes ManifestConsumes `toml:"consumes"`
 }
 
 type ManifestPackage struct {
@@ -30,12 +31,13 @@ type ManifestTarget struct {
 }
 
 type ManifestExposes struct {
-	// Exposed symlinks on installation to the package's bundled binaries
-	Bin []ManifestExposesBinary `toml:"bin" validate:"unique=Name"`
+	Bin []ManifestExposesBin `toml:"bin" validate:"unique=Name"` // Exposed wrappers on installation to the package's bundled binaries.
+	Env []ManifestExposesEnv `toml:"env" validate:"unique=Name"` // Exposed environment variables on installation.
 }
 
 func (exposes *ManifestExposes) ForTarget(target string) ManifestExposes {
-	bins := []ManifestExposesBinary{}
+	bins := []ManifestExposesBin{}
+	envs := []ManifestExposesEnv{}
 
 	for _, bin := range exposes.Bin {
 		if len(bin.Targets) > 0 {
@@ -47,13 +49,38 @@ func (exposes *ManifestExposes) ForTarget(target string) ManifestExposes {
 		}
 	}
 
-	return ManifestExposes{Bin: bins}
+	for _, env := range exposes.Env {
+		if len(env.Targets) > 0 {
+			if slices.Contains(env.Targets, target) {
+				envs = append(envs, env)
+			}
+		} else {
+			envs = append(envs, env)
+		}
+	}
+
+	return ManifestExposes{Bin: bins, Env: envs}
 }
 
-type ManifestExposesBinary struct {
+type ManifestExposesBin struct {
 	Name    string   `toml:"name" validate:"required,min=1,max=32,safe-path-segment"`
 	Path    string   `toml:"path" validate:"safe-path"`
 	Targets []string `toml:"targets" validate:"unique,dive,supported-target"`
+}
+
+type ManifestExposesEnv struct {
+	Name    string   `toml:"name" validate:"required,min=1,max=32,env-var-name"`
+	Value   string   `toml:"value" validate:"required,max=1024"`
+	Targets []string `toml:"targets" validate:"unique,dive,supported-target"`
+}
+
+type ManifestConsumes struct {
+	Env []ManifestConsumesEnv `toml:"env" validate:"unique=Name"`
+}
+
+type ManifestConsumesEnv struct {
+	Name      string `toml:"name" validate:"required,min=1,max=32,safe-path-segment"`
+	Separator string `toml:"separator" validate:"required,max=32"`
 }
 
 func GetManifest(path string) (Manifest, error) {
@@ -73,7 +100,7 @@ func GetManifest(path string) (Manifest, error) {
 		return Manifest{}, fmt.Errorf("manifest was not valid: %v", err)
 	}
 
-	err = validateTargets(path, manifest)
+	err = validateTargets(manifest)
 	if err != nil {
 		return Manifest{}, fmt.Errorf("failed to validate targets: %v", err)
 	}
@@ -100,7 +127,7 @@ func SetManifest(path string, content Manifest) error {
 	return nil
 }
 
-func validateTargets(path string, manifest Manifest) error {
+func validateTargets(manifest Manifest) error {
 	for target, meta := range manifest.Targets {
 		exists, err := utils.Exists(meta.Source)
 		if err != nil {

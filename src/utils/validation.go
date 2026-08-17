@@ -31,6 +31,7 @@ func ValidateStruct(s interface{}) error {
 	validate.RegisterValidation("safe-path", IntoValidator(IsSafePath))
 	validate.RegisterValidation("safe-path-segment", IntoValidator(IsSafePathSegment))
 	validate.RegisterValidation("supported-target", IntoValidator(IsSupportedTarget))
+	validate.RegisterValidation("env-var-name", IntoValidator(IsEnvVarName))
 
 	return validate.Struct(s)
 }
@@ -124,4 +125,13 @@ func IsSafePathSegment(value string) bool {
 
 func IsSupportedTarget(value string) bool {
 	return slices.Contains(SupportedTargets, value)
+}
+
+func IsEnvVarName(value string) bool {
+	matches, err := regexp.Match("^[a-zA-Z0-9_]+$", []byte(value))
+	if err != nil {
+		panic(err)
+	}
+
+	return matches
 }

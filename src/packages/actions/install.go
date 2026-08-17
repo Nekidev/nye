@@ -62,9 +62,19 @@ func InstallPackage(ctx packages.Context, path string) (packages.Manifest, error
 		return packages.Manifest{}, fmt.Errorf("could not extract package file: %v", err)
 	}
 
-	err = exposeBinaries(manifest, ctx)
+	err = exposeBins(manifest, ctx)
 	if err != nil {
 		return packages.Manifest{}, fmt.Errorf("could not expose one or more binaries: %v", err)
+	}
+
+	err = exposeEtcs(manifest, ctx)
+	if err != nil {
+		return packages.Manifest{}, fmt.Errorf("could not expose etcs: %v", err)
+	}
+
+	err = exposeEnvs(manifest, ctx)
+	if err != nil {
+		return packages.Manifest{}, fmt.Errorf("could not expose environment variables: %v", err)
 	}
 
 	return manifest, nil
@@ -213,6 +223,7 @@ func checkPackageStructure(zipper *zip.ReadCloser) error {
 	patterns := []string{
 		"package.toml",
 		"bin/**/*",
+		"etc/**/*",
 	}
 
 	hasManifest := false
@@ -247,7 +258,7 @@ func checkPackageStructure(zipper *zip.ReadCloser) error {
 	return nil
 }
 
-// Extracts a zip file into a directory.
+// Extracts a package file into a directory.
 //
 // Arguments:
 // * `zipper` - The zip reader to extract.
@@ -387,23 +398,116 @@ func extractFile(inputFile *zip.File, outputLocation string, ctx packages.Contex
 	return nil
 }
 
-// Creates the symlinks to the package's exposed binaries.
+// Creates the wrapper scripts to the package's exposed binaries.
 //
 // Arguments:
 // * `manifest` - The package's manifest.
 // * `ctx` - The packages context.
-func exposeBinaries(manifest packages.Manifest, ctx packages.Context) error {
+func exposeBins(manifest packages.Manifest, ctx packages.Context) error {
 	for _, bin := range manifest.Exposes.Bin {
 		if bin.Path == "" {
 			bin.Path = bin.Name
 		}
 
-		symlinkLocation := filepath.Join(ctx.Path, "bin", bin.Name)
-		originalLocation := filepath.Join(ctx.Path, "pkg", "packages", manifest.Package.Name, manifest.Package.Version, "bin", bin.Path)
-
-		err := os.Symlink(originalLocation, symlinkLocation)
+		binariesDir := filepath.Join(ctx.Path, "bin")
+		err := os.MkdirAll(binariesDir, ctx.DirPerms)
 		if err != nil {
-			return fmt.Errorf("could not expose `%v` binary through a symlink: %v", bin.Name, err)
+			return fmt.Errorf("could not ensure that binaries directory existed: %v", err)
+		}
+
+		wrapperLocation := filepath.Join(ctx.Path, "bin", bin.Name)
+
+		consumedEnvVars := map[string]string{}
+
+		for _, env := range manifest.Consumes.Env {
+			consumedEnvVars[env.Name] = env.Separator
+		}
+
+		shellScriptContents := packages.BinaryWrapper{
+			Path: filepath.Join(ctx.Path, "pkg", "packages", manifest.Package.Name, manifest.Package.Version, "bin", bin.Path),
+			DefinedEnvVars: map[string]string{
+				"NYE_INSTALLATION_BIN": filepath.Join(ctx.Path, "pkg", "packages", manifest.Package.Name, manifest.Package.Version, "bin"),
+				"NYE_INSTALLATION_ETC": filepath.Join(ctx.Path, "pkg", "packages", manifest.Package.Name, manifest.Package.Version, "etc"),
+				"NYE_INSTALLATION_ENV": filepath.Join(ctx.Path, "pkg", "packages", manifest.Package.Name, manifest.Package.Version, "env"),
+			},
+			ConsumedEnvVars: consumedEnvVars,
+		}.GetContents(ctx)
+
+		err = os.WriteFile(wrapperLocation, []byte(shellScriptContents), 0o744)
+		if err != nil {
+			return fmt.Errorf("could not expose `%v` binary through wrapper script: %v", bin.Name, err)
+		}
+	}
+
+	return nil
+}
+
+// Creates a symlink in `/etc` (or `/usr/username/etc`) named after the package pointing to the
+// package's etc directory.
+//
+// It also creates such directory if it does not exist.
+func exposeEtcs(manifest packages.Manifest, ctx packages.Context) error {
+	symlinkDir := filepath.Join(ctx.Path, "etc")
+	err := os.MkdirAll(symlinkDir, ctx.DirPerms)
+	if err != nil {
+		return fmt.Errorf("could not ensure that etcs directory existed: %v", err)
+	}
+
+	symlinkLocation := filepath.Join(ctx.Path, "etc", manifest.Package.Name)
+	originalLocation := filepath.Join(ctx.Path, "pkg", "packages", manifest.Package.Name, manifest.Package.Version, "etc")
+
+	err = os.MkdirAll(originalLocation, ctx.DirPerms)
+	if err != nil {
+		return fmt.Errorf("could not create missing directories for path `%v`: %v", originalLocation, err)
+	}
+
+	err = os.Symlink(originalLocation, symlinkLocation)
+	if err != nil {
+		return fmt.Errorf("could not expose etcs for `%v`: %v", manifest.Package.Name, err)
+	}
+
+	return nil
+}
+
+func exposeEnvs(manifest packages.Manifest, ctx packages.Context) error {
+	envDir := filepath.Join(ctx.Path, "pkg", "packages", manifest.Package.Name, manifest.Package.Version, "env")
+	err := os.MkdirAll(envDir, ctx.DirPerms)
+	if err != nil {
+		return fmt.Errorf("could not create enviroment variables directory at `%v`: %v", envDir, err)
+	}
+
+	for _, env := range manifest.Exposes.Env {
+		symlinkDir := filepath.Join(ctx.Path, "pkg", "env", env.Name, manifest.Package.Name)
+		err = os.MkdirAll(symlinkDir, ctx.DirPerms)
+		if err != nil {
+			return fmt.Errorf("could not create env var symlink dir at `%v`: %v", symlinkDir, err)
+		}
+
+		symlinkPath := filepath.Join(symlinkDir, manifest.Package.Version)
+		originalPath := filepath.Join(envDir, env.Name)
+
+		expanded := os.Expand(env.Value, func(name string) string {
+			vars := map[string]string{
+				"NYE_INSTALLATION_BIN": filepath.Join(ctx.Path, "pkg", "packages", manifest.Package.Name, manifest.Package.Version, "bin"),
+				"NYE_INSTALLATION_ETC": filepath.Join(ctx.Path, "pkg", "packages", manifest.Package.Name, manifest.Package.Version, "etc"),
+				"NYE_INSTALLATION_ENV": filepath.Join(ctx.Path, "pkg", "packages", manifest.Package.Name, manifest.Package.Version, "env"),
+			}
+
+			if value, ok := vars[name]; ok {
+				return value
+			} else {
+				return "$" + name
+			}
+		})
+
+		err = os.WriteFile(originalPath, []byte(expanded), ctx.FilePerms)
+		if err != nil {
+			return fmt.Errorf("could not create environment variable file for `%v`: %v", env.Name, err)
+		}
+
+		err = os.Symlink(originalPath, symlinkPath)
+		if err != nil {
+			return fmt.Errorf("could not symlink environment variable file `%v` to `%v`: %v", originalPath, symlinkPath, err)
 		}
 	}
 

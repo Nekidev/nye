@@ -16,6 +16,7 @@ func CreatePackage(name string, path string) error {
 	dirs := []string{
 		path,
 		filepath.Join(path, "src", utils.GetCurrentTarget(), "bin"),
+		filepath.Join(path, "src", utils.GetCurrentTarget(), "etc"),
 		filepath.Join(path, "dist"),
 	}
 
