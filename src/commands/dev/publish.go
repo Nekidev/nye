@@ -12,8 +12,8 @@ import (
 	"github.com/vbauerster/mpb/v8/decor"
 
 	"nyeki.dev/nye/projects"
-	"nyeki.dev/nye/projects/actions"
 	"nyeki.dev/nye/registries"
+	"nyeki.dev/nye/registries/actions"
 	"nyeki.dev/nye/utils"
 )
 
