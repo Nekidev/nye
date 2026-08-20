@@ -3,6 +3,7 @@ package registries
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"slices"
 
 	"github.com/pelletier/go-toml/v2"
@@ -10,8 +11,8 @@ import (
 )
 
 type Config struct {
-	DefaultRegistry string           `toml:"default-registry"`
-	Registries      []ConfigRegistry `toml:"registries"`
+	Default    string           `toml:"default"`
+	Registries []ConfigRegistry `toml:"registries"`
 }
 
 type ConfigRegistry struct {
@@ -19,7 +20,7 @@ type ConfigRegistry struct {
 	Name string `toml:"name" validate:"kebab-case"`
 }
 
-// Reads a config file from the specified file path.
+// Reads a config file.
 //
 // If the file path does not exist, an empty configuration is returned instead of an error. If the
 // file fails to be read or the config is invalid, an error is returned.
@@ -27,7 +28,9 @@ type ConfigRegistry struct {
 // Returns:
 // * `Config` - The read config, or an empty config if it does not exist.
 // * `error` - An error, if one occurred while reading the config file.
-func GetConfig(path string) (Config, error) {
+func GetConfig() (Config, error) {
+	path := filepath.Join(utils.EnvNyeInstallationEtc, "registries.toml")
+
 	exists, err := utils.Exists(path)
 	if err != nil {
 		return Config{}, fmt.Errorf("could not check if config file existed: %v", err)
@@ -61,15 +64,15 @@ func GetConfig(path string) (Config, error) {
 }
 
 func validateDefultRegistry(config *Config) error {
-	if config.DefaultRegistry != "" {
+	if config.Default != "" {
 		registryNames := []string{}
 
 		for _, registry := range config.Registries {
 			registryNames = append(registryNames, registry.Name)
 		}
 
-		if !slices.Contains(registryNames, config.DefaultRegistry) {
-			return fmt.Errorf("the default registry, `%v`, was not defined as a registry under `registries`", config.DefaultRegistry)
+		if !slices.Contains(registryNames, config.Default) {
+			return fmt.Errorf("the default registry, `%v`, was not defined as a registry under `registries`", config.Default)
 		}
 	}
 

@@ -1,0 +1,22 @@
+#!/bin/sh
+
+echo -n "Setting up nye installation environment...\r"
+
+sudo mkdir -p /usr/vscode
+sudo chown vscode /usr/vscode
+
+export NYE_INSTALLATION_BIN=/usr/vscode/pkg/packages/nye/0.1.0/bin
+export NYE_INSTALLATION_ETC=/usr/vscode/pkg/packages/nye/0.1.0/etc
+export NYE_INSTALLATION_ENV=/usr/vscode/pkg/packages/nye/0.1.0/env
+
+mkdir -p $NYE_INSTALLATION_BIN
+mkdir -p $NYE_INSTALLATION_ETC
+mkdir -p $NYE_INSTALLATION_ENV
+
+echo -n "Installing nye...                         \r"
+
+go install -C /workspaces/nye/src .
+
+echo -n "                                          \r"
+
+nye $@

@@ -15,8 +15,8 @@ var PackageDescription = "Nyeki's package manager."
 
 type Args struct {
 	System    bool             `short:"s" help:"Run the command in the system-wide installation directory (requires root)."`
-	Version   VersionFlag      `short:"v" help:"Displays the current nye version."`
-	Target    TargetFlag       `short:"t" help:"Displays your system's target."`
+	Version   VersionFlag      `help:"Displays the current nye version."`
+	Target    TargetFlag       `help:"Displays your system's target."`
 	Install   InstallCommand   `cmd:"" aliases:"i" help:"Install a package."`
 	Uninstall UninstallCommand `cmd:"" aliases:"u" help:"Uninstall a package."`
 	Dev       dev.DevCommand   `cmd:"" aliases:"d" help:"Create and manage new packages."`

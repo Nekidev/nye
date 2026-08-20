@@ -14,15 +14,15 @@ import (
 )
 
 type DevPackCommand struct {
-	ForTargets []string "short:\"f\" default:\"current\" help:\"The targets for which to pack the package for. May include individual targets, `current`, or `all`.\""
+	Targets []string "short:\"t\" default:\"current\" help:\"The targets for which to pack the package for. May include individual targets, `current`, or `all`.\""
 }
 
 func (cmd *DevPackCommand) Validate() error {
-	if len(cmd.ForTargets) == 0 {
+	if len(cmd.Targets) == 0 {
 		return fmt.Errorf("there must be at least one target specified to pack for")
 	}
 
-	for i, target := range cmd.ForTargets {
+	for i, target := range cmd.Targets {
 		isAll := target == "all"
 		isCurrent := target == "current"
 		isSupported := utils.IsSupportedTarget(target)
@@ -31,11 +31,11 @@ func (cmd *DevPackCommand) Validate() error {
 			return fmt.Errorf("the target %v is invalid", target)
 		}
 
-		if target == "all" && len(cmd.ForTargets) != 1 {
-			return fmt.Errorf("`--for-targets=all` cannot be used with other individual targets")
+		if target == "all" && len(cmd.Targets) != 1 {
+			return fmt.Errorf("`--targets=all` cannot be used with other individual targets")
 		}
 
-		if slices.Index(cmd.ForTargets, target) != i {
+		if slices.Index(cmd.Targets, target) != i {
 			return fmt.Errorf("each target can only be specified once, but you specified %v twice or more", target)
 		}
 	}
@@ -49,13 +49,13 @@ func (cmd *DevPackCommand) Run() error {
 		return fmt.Errorf("could not get context for working directory's package: %v", err)
 	}
 
-	if cmd.ForTargets[0] == "all" {
-		cmd.ForTargets = slices.Collect(maps.Keys(ctx.Manifest.Targets))
+	if cmd.Targets[0] == "all" {
+		cmd.Targets = slices.Collect(maps.Keys(ctx.Manifest.Targets))
 	}
 
 	packed := []struct{target string; path string}{}
 
-	for _, target := range cmd.ForTargets {
+	for _, target := range cmd.Targets {
 		if target == "current" {
 			target = utils.GetCurrentTarget()
 		}

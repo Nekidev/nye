@@ -72,7 +72,7 @@ func createZipper(ctx projects.Context, targetString string) (*zip.Writer, strin
 		return nil, "", fmt.Errorf("could not create dist dir: %v", err)
 	}
 
-	zipName := filepath.Join(distDir, fmt.Sprintf("nye-%v-v%v-for-%v-pack.zip", ctx.Manifest.Package.Name, ctx.Manifest.Package.Version, targetString))
+	zipName := projects.GetPackDistPath(ctx, targetString)
 	exists, err := utils.Exists(zipName)
 	if err != nil {
 		return nil, "", fmt.Errorf("could not check if pack file existed: %v", err)

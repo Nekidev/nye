@@ -9,8 +9,8 @@ import (
 )
 
 type DevNewCommand struct {
+	Path string `arg:"" help:"The folder where the project will be created." default:"." type:"path"`
 	Name string `help:"The name of the project."`
-	Path string `help:"The folder where the project will be created." default:"." type:"existingPath"`
 }
 
 func (cmd *DevNewCommand) Run() error {

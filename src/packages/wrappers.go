@@ -35,8 +35,8 @@ func (wrapper BinaryWrapper) GetContents(ctx Context) string {
 
 	if len(wrapper.ConsumedEnvVars) > 0 {
 		contents.WriteString(dedent.Dedent(`
-			if ! command -v envsubst >/dev/null 2>&1; then
-				echo "error: envsubst is required to run this package" >&2
+			if ! command -v ee >/dev/null 2>&1; then
+				echo "error: ee (envexpand) is required to run this package" >&2
 				exit 127
 			fi
 
@@ -52,7 +52,7 @@ func (wrapper BinaryWrapper) GetContents(ctx Context) string {
 					for version in "$package"/*; do
 						[ -f "$version" ] || continue
 
-						value="$(envsubst < "$version")"
+						value="$(ee < "$version")"
 
 						if [ -n "$result" ]; then
 							result="$result$separator$value"
