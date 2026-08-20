@@ -15,6 +15,16 @@ type Config struct {
 	Registries []ConfigRegistry `toml:"registries"`
 }
 
+func (config *Config) GetRegistry(name string) *ConfigRegistry {
+	for _, registry := range config.Registries {
+		if registry.Name == name {
+			return &registry
+		}
+	}
+
+	return nil
+}
+
 type ConfigRegistry struct {
 	Url  string `toml:"url" validate:"required,url"`
 	Name string `toml:"name" validate:"kebab-case"`
