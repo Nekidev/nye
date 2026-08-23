@@ -46,12 +46,12 @@ func (cmd *DevPublishCommand) Run() error {
 	var registry *registries.ConfigRegistry
 	var registryNames []string
 
-	for _, reg := range config.Registries {
-		if reg.Name == cmd.Registry {
+	for regName, reg := range config.Registries {
+		if regName == cmd.Registry {
 			registry = &reg
 		}
 
-		registryNames = append(registryNames, reg.Name)
+		registryNames = append(registryNames, regName)
 	}
 
 	if registry == nil {
@@ -108,12 +108,13 @@ func (cmd *DevPublishCommand) Run() error {
 		bundles[target] = bar.ProxyReader(file)
 	}
 
-	err = actions.PublishPackage(registry.Url, ctx.Manifest.Package.Name, ctx.Manifest.Package.Version, bundles)
+	err = actions.PublishPackage(registry.URL, ctx.Manifest.Package.Name, ctx.Manifest.Package.Version, bundles)
 	if err != nil {
 		return fmt.Errorf("could not upload package version files: %v", err)
 	}
 
 	progress.Wait()
+	utils.ClearLines(len(bundles))
 
 	fmt.Printf(
 		"Done! All packs for %v were published to the registry.\n",

@@ -11,23 +11,21 @@ import (
 )
 
 type Config struct {
-	Default    string           `toml:"default"`
-	Registries []ConfigRegistry `toml:"registries"`
+	Default    string                    `toml:"default"`
+	Registries map[string]ConfigRegistry `toml:"registries" validate:"dive,keys,kebab-case,min=1,max=32,endkeys"`
 }
 
 func (config *Config) GetRegistry(name string) *ConfigRegistry {
-	for _, registry := range config.Registries {
-		if registry.Name == name {
-			return &registry
-		}
+	registry, ok := config.Registries[name]
+	if !ok {
+		return nil
 	}
 
-	return nil
+	return &registry
 }
 
 type ConfigRegistry struct {
-	Url  string `toml:"url" validate:"required,url"`
-	Name string `toml:"name" validate:"kebab-case"`
+	URL string `toml:"url" validate:"required,url"`
 }
 
 // Reads a config file.
@@ -77,8 +75,8 @@ func validateDefultRegistry(config *Config) error {
 	if config.Default != "" {
 		registryNames := []string{}
 
-		for _, registry := range config.Registries {
-			registryNames = append(registryNames, registry.Name)
+		for name := range config.Registries {
+			registryNames = append(registryNames, name)
 		}
 
 		if !slices.Contains(registryNames, config.Default) {
