@@ -1,10 +1,10 @@
 Commands for MVP:
 
-- DONE nye dev new [name] [--path <path>]: Creates a new package project.
-- DONE nye dev pack [--target <target>]: Packages the current package project.
+- nye dev new [name] [--path <path>]: Creates a new package project.
+- nye dev pack [--target <target>]: Packages the current package project.
 
-- DONE nye install
-- DONE nye uninstall
+- nye install
+- nye uninstall
 
 
 Filesystem:

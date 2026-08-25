@@ -1,0 +1,15 @@
+[package]
+name = "nye"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { version = "1.0.104", features = ["backtrace"] }
+clap = { version = "4.6.6", features = ["derive", "env", "wrap_help"] }
+colored = "3.1.1"
+dedent = "0.1.1"
+pathdiff = "0.2.3"
+regex = "1.13.1"
+serde = { version = "1.0.229", features = ["derive"] }
+tokio = { version = "1.53.1", features = ["fs", "macros", "rt", "rt-multi-thread"] }
+toml = { version = "1.1.4", features = ["preserve_order", "serde"] }
