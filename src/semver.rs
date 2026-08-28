@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 /// A semantic version v2.0.0, as defined by https://semver.org/.
 ///
 /// Parse from a string using [`FromStr`].
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Semver<T = u64>
 where
     T: Number,

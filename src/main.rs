@@ -2,19 +2,31 @@ use anyhow::Context;
 use clap::{CommandFactory, FromArgMatches};
 use colored::Colorize;
 
-use crate::{
-    args::{Args, DevSubcommandSubcommand, Subcommand},
-    targets::Target,
-};
+use crate::args::{Args, DevSubcommandSubcommand, Subcommand};
+use crate::targets::Target;
 
 mod args;
 mod commands;
+mod display;
+mod packages;
 mod projects;
 mod semver;
 mod targets;
+mod validation;
+
+fn main() {
+    let result = main_inner();
+
+    match result {
+        Ok(()) => {}
+        Err(error) => {
+            eprintln!("{}", format!("{error:?}").red());
+        }
+    }
+}
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main_inner() -> anyhow::Result<()> {
     let current_target = Target::get_current()?;
 
     let mut command = Args::command();
@@ -48,12 +60,24 @@ async fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
+    if args.system && users::get_effective_uid() != 0 {
+        anyhow::bail!(
+            "You're logged in as `{}`, yet you need to be logged in as `{}` to be able to run commands on the system installation.",
+            users::get_current_username()
+                .unwrap()
+                .into_string()
+                .unwrap(),
+            users::get_user_by_uid(0).unwrap().name().to_str().unwrap()
+        );
+    }
+
     if let Some(subcommand) = &args.subcommand {
         match subcommand {
             Subcommand::Dev(subcommand) => match &subcommand.subcommand {
                 DevSubcommandSubcommand::Init(cmd) => commands::dev_init::run(&args, cmd).await?,
+                DevSubcommandSubcommand::Pack(cmd) => commands::dev_pack::run(&args, cmd).await?,
             },
-            Subcommand::Install => anyhow::bail!("not implemented"),
+            Subcommand::Install(cmd) => commands::install::run(&args, cmd).await?,
             Subcommand::Uninstall => anyhow::bail!("not implemented"),
         }
     } else {

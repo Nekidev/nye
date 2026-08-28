@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use anyhow::Context;
 use tokio::fs;
 
+use crate::projects::ManifestExposes;
 use crate::projects::manifest::{Manifest, ManifestPackage, ManifestTarget, TargetOrShared};
 use crate::semver::Semver;
 use crate::targets::Target;
@@ -87,6 +88,7 @@ pub async fn create(path: PathBuf, name: Option<String>) -> anyhow::Result<Manif
                 },
             ),
         ]),
+        exposes: ManifestExposes { bin: Vec::new() },
     };
     let manifest_string =
         toml::to_string_pretty(&manifest).context("Could not write project manifest to string.")?;
