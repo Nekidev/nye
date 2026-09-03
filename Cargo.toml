@@ -2,6 +2,7 @@
 name = "nye"
 version = "0.1.0"
 edition = "2024"
+default-run = "nye"
 
 [dependencies]
 anyhow = { version = "1.0.104", features = ["backtrace"] }
@@ -11,10 +12,13 @@ colored = "3.1.1"
 dedent = "0.1.1"
 globwalk = "0.9.1"
 indicatif = { version = "0.18.6", features = ["tokio"] }
+jiff = { version = "0.2.35", features = ["static-tz"] }
 path-clean = "1.0.1"
 pathdiff = "0.2.3"
 regex = "1.13.1"
 serde = { version = "1.0.229", features = ["derive"] }
+toasty = { version = "0.10.0", features = ["sqlite", "jiff", "migration"] }
+toasty-cli = "0.10.0"
 tokio = { version = "1.53.1", features = ["fs", "io-std", "io-util", "macros", "rt", "rt-multi-thread"] }
 tokio-util = { version = "0.7.19", features = ["futures-io", "io", "io-util"] }
 toml = { version = "1.1.4", features = ["preserve_order", "serde"] }

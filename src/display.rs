@@ -1,4 +1,5 @@
-use std::{fmt::Display, time::Duration};
+use std::fmt::Display;
+use std::time::Duration;
 
 use indicatif::{ProgressBar, ProgressStyle};
 

@@ -1,0 +1,5 @@
+[migration]
+path = "src/installations/toasty"
+prefix_style = "Sequential"
+checksums = false
+statement_breakpoints = true

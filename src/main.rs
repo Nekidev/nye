@@ -1,18 +1,8 @@
 use anyhow::Context;
 use clap::{CommandFactory, FromArgMatches};
 use colored::Colorize;
-
-use crate::args::{Args, DevSubcommandSubcommand, Subcommand};
-use crate::targets::Target;
-
-mod args;
-mod commands;
-mod display;
-mod packages;
-mod projects;
-mod semver;
-mod targets;
-mod validation;
+use nye::args::{Args, DevSubcommandSubcommand, Subcommand};
+use nye::targets::Target;
 
 fn main() {
     let result = main_inner();
@@ -74,10 +64,14 @@ async fn main_inner() -> anyhow::Result<()> {
     if let Some(subcommand) = &args.subcommand {
         match subcommand {
             Subcommand::Dev(subcommand) => match &subcommand.subcommand {
-                DevSubcommandSubcommand::Init(cmd) => commands::dev_init::run(&args, cmd).await?,
-                DevSubcommandSubcommand::Pack(cmd) => commands::dev_pack::run(&args, cmd).await?,
+                DevSubcommandSubcommand::Init(cmd) => {
+                    nye::commands::dev_init::run(&args, cmd).await?
+                }
+                DevSubcommandSubcommand::Pack(cmd) => {
+                    nye::commands::dev_pack::run(&args, cmd).await?
+                }
             },
-            Subcommand::Install(cmd) => commands::install::run(&args, cmd).await?,
+            Subcommand::Install(cmd) => nye::commands::install::run(&args, cmd).await?,
             Subcommand::Uninstall => anyhow::bail!("not implemented"),
         }
     } else {

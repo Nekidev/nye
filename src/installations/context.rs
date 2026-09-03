@@ -2,13 +2,17 @@ use std::path::PathBuf;
 
 use anyhow::Context as AnyhowContext;
 
+#[derive(Clone)]
 pub struct Context {
     /// The root directory of the context's namespace.
-    /// 
+    ///
     /// This will be:
     /// * When the command is being run as the system, `/`.
     /// * When the command is being run as a user, `/usr/{username}/`.
     pub root: PathBuf,
+
+    /// Whether the namespace is the system's root, i.e. /.
+    pub is_system: bool,
 }
 
 impl Context {
@@ -25,6 +29,7 @@ impl Context {
         if is_system {
             Ok(Context {
                 root: PathBuf::from("/"),
+                is_system,
             })
         } else {
             let username = users::get_effective_username()
@@ -36,6 +41,7 @@ impl Context {
 
             Ok(Context {
                 root: PathBuf::from(format!("/usr/{username}/")),
+                is_system,
             })
         }
     }
