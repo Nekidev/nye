@@ -222,6 +222,10 @@ source = "src/linux-x86_64"  # The directory under where target-specific files f
 source = "src/shared"        # The directory under where cross-target files for this package are located in the project.
 ```
 
+You can edit all fields. Specific targets are all optional, though you must always have at least one
+specific target configured (i.e. any target but `shared`). You can have as many unique targets
+configured as you want, provided they're supported by `nye`.
+
 #### Exposing Binaries
 
 Not every binary under `src/{target}/bin` will be placed in the installation context's (`/` or
