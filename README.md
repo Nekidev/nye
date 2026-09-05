@@ -94,7 +94,7 @@ the `--system` flag after `nye` (e.g. `nye --system install package-name`).
 The following command examples show a basic use of the commands. To see up-to-date and detailed
 usage descriptions, run `nye --help`.
 
-### Installation
+### Installing Packages
 
 ```
 Install one or more packages
@@ -109,7 +109,7 @@ Example:
   nye install --path package-1.zip --path package-2.zip
 ```
 
-### Uninstallation
+### Uninstalling Packages
 
 ```
 Uninstall one or more packages
