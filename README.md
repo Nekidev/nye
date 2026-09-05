@@ -85,7 +85,7 @@ systems. The file system assumed looks like this:
 Note that `root` is itself treated as another user. It'll have its own `/usr/root/` namespace
 instead of `/root`.
 
-## Usage
+## CLI Usage
 
 Usage is quite simple. By default, all commands will be run in the current user's user-specific
 installation (`/usr/{username}/pkg`). To run commands on the system-wide installation instead, pass
@@ -126,7 +126,7 @@ Example:
   nye uninstall package-1 package-2
 ```
 
-#### Create a Package Project
+### Create a Package Project
 
 ```
 Initialize a new package project
@@ -144,7 +144,7 @@ Example:
   nye dev init . --name package-1
 ```
 
-#### Package a Package Project
+### Package a Package Project
 
 ```
 Package the current project into an installable file
@@ -160,7 +160,7 @@ Example:
   nye dev pack --target linux-x86_64 --overwrite
 ```
 
-### Package Projects
+## Package Projects
 
 Package projects let you bundle all package artifacts into target-specific installable package
 files.
@@ -205,7 +205,7 @@ src/               # Package project's source files.
 dist/              # Where built package files will be placed after `nye dev pack`.
 ```
 
-#### Package Manifests
+### Package Manifests
 
 Package manifests are located at the root of each package project. They're called `nye.toml`, and by
 default look something like this:
@@ -222,7 +222,7 @@ source = "src/linux-x86_64"  # The directory under where target-specific files f
 source = "src/shared"        # The directory under where cross-target files for this package are located in the project.
 ```
 
-##### Exposing Binaries
+#### Exposing Binaries
 
 Not every binary under `src/{target}/bin` will be placed in the installation context's (`/` or
 `/usr/{username}/`) `bin` directory. For them to be available, they have to be **exposed**.
