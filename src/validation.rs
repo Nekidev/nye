@@ -37,7 +37,7 @@ pub fn is_safe_path(path: impl AsRef<Path>) -> anyhow::Result<()> {
 
     for component in path.components() {
         is_safe_path_component(
-            &component
+            component
                 .as_os_str()
                 .to_str()
                 .context("Path components must not contain unicode characters.")?,
