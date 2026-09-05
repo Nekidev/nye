@@ -45,4 +45,24 @@ impl Context {
             })
         }
     }
+
+    pub fn get_database_url(&self) -> String {
+        format!(
+            "sqlite://{}",
+            self.root.join("pkg").join("state.db").display()
+        )
+    }
+
+    pub fn get_package_installation_path(
+        &self,
+        package_name: impl ToString,
+        package_version: impl ToString,
+    ) -> anyhow::Result<PathBuf> {
+        Ok(self
+            .root
+            .join("pkg")
+            .join("store")
+            .join(package_name.to_string())
+            .join(package_version.to_string()))
+    }
 }

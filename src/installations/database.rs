@@ -32,10 +32,12 @@ pub struct ExposedBin {
     pub updated_at: Zoned,
 }
 
-pub async fn connect(url: &str) -> anyhow::Result<Db> {
+pub async fn connect(url: impl Into<String>) -> anyhow::Result<Db> {
+    let url = url.into();
+    
     let db = toasty::Db::builder()
         .models(toasty::models!(Package, ExposedBin))
-        .connect(url)
+        .connect(&url)
         .await
         .context("Could not connect to the database.")?;
 

@@ -72,7 +72,8 @@ async fn main_inner() -> anyhow::Result<()> {
                 }
             },
             Subcommand::Install(cmd) => nye::commands::install::run(&args, cmd).await?,
-            Subcommand::Uninstall => anyhow::bail!("not implemented"),
+            Subcommand::Uninstall(cmd) => nye::commands::uninstall::run(&args, cmd).await?,
+            Subcommand::List(cmd) => nye::commands::list::run(&args, cmd).await?,
         }
     } else {
         command_copy

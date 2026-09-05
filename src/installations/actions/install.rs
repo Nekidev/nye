@@ -51,10 +51,7 @@ pub async fn install(ctx: Context, path: PathBuf) -> anyhow::Result<Manifest> {
     validate_manifest_exposed_bins(&manifest, &paths)
         .context("The package file's exposed bins were misconfigured.")?;
 
-    let mut db = database::connect(&format!(
-        "sqlite://{}",
-        ctx.root.join("pkg").join("state.db").display()
-    ))
+    let mut db = database::connect(ctx.get_database_url())
     .await
     .context("Could not connect to state database.")?;
     let mut transaction = db

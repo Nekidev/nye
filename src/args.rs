@@ -45,7 +45,11 @@ pub enum Subcommand {
 
     /// Uninstall one or more packages.
     #[command(visible_alias = "u")]
-    Uninstall,
+    Uninstall(UninstallSubcommandArgs),
+
+    /// Lists all installed packages.
+    #[command(visible_alias = "l")]
+    List(ListSubcommandArgs),
 }
 
 #[derive(clap::Parser)]
@@ -109,3 +113,12 @@ pub struct InstallSubcommandArgs {
     #[arg(short, long, action = ArgAction::Help)]
     pub help: Option<bool>,
 }
+
+#[derive(clap::Parser)]
+pub struct UninstallSubcommandArgs {
+    /// The names of the packages to uninstall.
+    pub packages: Vec<String>,
+}
+
+#[derive(clap::Parser)]
+pub struct ListSubcommandArgs {}
