@@ -3,8 +3,8 @@ Commands for MVP:
 - DONE nye dev new [path] [--name <name>]: Creates a new package project.
 - DONE nye dev pack [--target <target>]: Packages the current package project.
 
-- nye install
-- nye uninstall
+- DONE nye install
+- DONE nye uninstall
 
 
 Filesystem:
@@ -19,10 +19,3 @@ Filesystem:
 - /usr/{username}/pkg: User-specific packages
 - /usr/{username}/pkg/tmp: User-specific temporary package data (e.g. extraction)
 - /usr/{username}/pkg/store: User-installed package data
-
-
-Registry:
-
--  GET /v1/packages
-- POST /v1/packages
--  GET /v1/packages/{package_id}/versions/{version_id}

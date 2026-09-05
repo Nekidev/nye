@@ -79,7 +79,7 @@ pub struct DevSubcommandInitSubcommandArgs {
     #[arg(default_value = ".")]
     pub path: PathBuf,
 
-    /// The name to give the package project. Defaults to the current directory's name.
+    /// The name to give the package project. Defaults to the path's directory name.
     #[arg(short, long)]
     pub name: Option<String>,
 
@@ -118,7 +118,15 @@ pub struct InstallSubcommandArgs {
 pub struct UninstallSubcommandArgs {
     /// The names of the packages to uninstall.
     pub packages: Vec<String>,
+
+    /// Display instructions on how to use nye uninstall.
+    #[arg(short, long, action = ArgAction::Help)]
+    pub help: Option<bool>,
 }
 
 #[derive(clap::Parser)]
-pub struct ListSubcommandArgs {}
+pub struct ListSubcommandArgs {
+    /// Display instructions on how to use nye list.
+    #[arg(short, long, action = ArgAction::Help)]
+    pub help: Option<bool>,
+}
