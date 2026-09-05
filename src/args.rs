@@ -50,6 +50,11 @@ pub enum Subcommand {
     /// Lists all installed packages.
     #[command(visible_alias = "l")]
     List(ListSubcommandArgs),
+
+    /// Toasty development migration commands.
+    #[cfg(debug_assertions)]
+    #[command(visible_alias = "t")]
+    Toasty(ToastySubcommandArgs),
 }
 
 #[derive(clap::Parser)]
@@ -129,4 +134,11 @@ pub struct ListSubcommandArgs {
     /// Display instructions on how to use nye list.
     #[arg(short, long, action = ArgAction::Help)]
     pub help: Option<bool>,
+}
+
+#[cfg(debug_assertions)]
+#[derive(clap::Parser)]
+pub struct ToastySubcommandArgs {
+    /// The arguments to pass to the toasty command.
+    pub args: Vec<String>,
 }

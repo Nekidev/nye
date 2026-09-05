@@ -88,7 +88,10 @@ pub async fn create(path: PathBuf, name: Option<String>) -> anyhow::Result<Manif
                 },
             ),
         ]),
-        exposes: ManifestExposes { bin: Vec::new() },
+        exposes: ManifestExposes {
+            bin: Vec::new(),
+            lib: Vec::new(),
+        },
     };
     let manifest_string =
         toml::to_string_pretty(&manifest).context("Could not write project manifest to string.")?;
@@ -98,8 +101,8 @@ pub async fn create(path: PathBuf, name: Option<String>) -> anyhow::Result<Manif
 
     let gitignore = dedent::dedent!(
         r#"
-        dist/
-    "#
+            dist/
+        "#
     );
     fs::write(canonical_path.join(".gitignore"), gitignore)
         .await

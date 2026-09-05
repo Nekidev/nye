@@ -149,18 +149,20 @@ impl Validate for ManifestTarget {
 pub struct ManifestExposes {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub bin: Vec<ManifestExposesBin>,
+
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub lib: Vec<ManifestExposesLib>,
 }
 
 impl ManifestExposes {
     fn is_empty(&self) -> bool {
-        self.bin.is_empty()
+        self.lib.is_empty() && self.lib.is_empty()
     }
 }
 
 impl Validate for ManifestExposes {
     fn validate(&self) -> anyhow::Result<()> {
-        let mut links = HashSet::new();
-
+        let mut bin_links = HashSet::new();
         for bin in &self.bin {
             bin.validate().context(format!(
                 "The exposed binary `{}` was incorrectly configured.",
@@ -168,14 +170,31 @@ impl Validate for ManifestExposes {
             ))?;
 
             for link in &bin.links {
-                if links.contains(link) {
+                if bin_links.contains(link) {
                     anyhow::bail!(
                         "Two or more exposed binaries conflict on the linked name `{link}`."
                     )
                 }
 
-                links.insert(link);
+                bin_links.insert(link);
             }
+        }
+
+        let mut lib_links = HashSet::new();
+        for lib in &self.lib {
+            lib.validate().context(format!(
+                "The exposed library `{}` was incorrectly configured.",
+                lib.path.display()
+            ))?;
+
+            if lib_links.contains(&lib.link) {
+                anyhow::bail!(
+                    "Two or more exposed libraries conflict on the linked name `{}`.",
+                    lib.link
+                )
+            }
+
+            lib_links.insert(&lib.link);
         }
 
         Ok(())
@@ -198,7 +217,7 @@ pub struct ManifestExposesBin {
 impl Validate for ManifestExposesBin {
     fn validate(&self) -> anyhow::Result<()> {
         validation::is_safe_path(&self.path).context(format!(
-            "The specified path `{}` is not safe.",
+            "The specified bin path `{}` is not safe.",
             self.path.display()
         ))?;
 
@@ -213,6 +232,47 @@ impl Validate for ManifestExposesBin {
                 "The specified linked name `{link}` was not a safe path component."
             ))?;
         }
+
+        for target in &self.targets {
+            if !target.is_supported() {
+                anyhow::bail!("The specified target `{target}` is not supported by nye.");
+            }
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct ManifestExposesLib {
+    pub path: PathBuf,
+
+    /// When empty, it defaults to the file name.
+    #[serde(default)]
+    pub link: String,
+
+    /// When empty, it defaults to all targets supported by the package.
+    #[serde(default, skip_serializing_if = "HashSet::is_empty")]
+    pub targets: HashSet<Target>,
+}
+
+impl Validate for ManifestExposesLib {
+    fn validate(&self) -> anyhow::Result<()> {
+        validation::is_safe_path(&self.path).context(format!(
+            "The specified lib path `{}` is not safe.",
+            self.path.display()
+        ))?;
+
+        if !(1..=32).contains(&self.link.len()) {
+            anyhow::bail!(
+                "Linked names must be at least one character long and up to 32 characters long."
+            );
+        }
+
+        validation::is_safe_path_component(&self.link).context(format!(
+            "The specified linked name `{}` was not a safe path component.",
+            self.link
+        ))?;
 
         for target in &self.targets {
             if !target.is_supported() {

@@ -1,0 +1,9 @@
+[package]
+name = "default"
+version = "0.0.0"
+
+[targets.linux-x86_64]
+source = "src/linux-x86_64"
+
+[targets.shared]
+source = "src/shared"

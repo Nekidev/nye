@@ -50,10 +50,12 @@ pub async fn install(ctx: Context, path: PathBuf) -> anyhow::Result<Manifest> {
     let paths = validate_zip_contents(&mut zip).context("The package file was invalid.")?;
     validate_manifest_exposed_bins(&manifest, &paths)
         .context("The package file's exposed bins were misconfigured.")?;
+    validate_manifest_exposed_libs(&manifest, &paths)
+        .context("The package file's exposed libs were misconfigured.")?;
 
     let mut db = database::connect(ctx.get_database_url())
-    .await
-    .context("Could not connect to state database.")?;
+        .await
+        .context("Could not connect to state database.")?;
     let mut transaction = db
         .transaction()
         .await
@@ -70,6 +72,9 @@ pub async fn install(ctx: Context, path: PathBuf) -> anyhow::Result<Manifest> {
     expose_bins(&ctx, &manifest)
         .await
         .context("An error occurred while exposing binaries.")?;
+    expose_libs(&ctx, &manifest)
+        .await
+        .context("An error occurred while exposing libraries.")?;
 
     update_state_database(&manifest, &mut transaction)
         .await
@@ -174,6 +179,24 @@ fn validate_manifest_exposed_bins(
         if !paths.contains(&path.display().to_string()) {
             anyhow::bail!(
                 "The package file specfied an exposed binary in its manifest that was not present, `{}`.",
+                path.display()
+            );
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_manifest_exposed_libs(
+    manifest: &Manifest,
+    paths: &HashSet<String>,
+) -> anyhow::Result<()> {
+    for exposed_lib in &manifest.exposes.lib {
+        let path = PathBuf::from("lib").join(&exposed_lib.path);
+
+        if !paths.contains(&path.display().to_string()) {
+            anyhow::bail!(
+                "The package file specfied an exposed library in its manifest that was not present, `{}`.",
                 path.display()
             );
         }
@@ -351,6 +374,27 @@ async fn expose_bins(ctx: &Context, manifest: &Manifest) -> anyhow::Result<()> {
 
     Ok(())
 }
+
+async fn expose_libs(ctx: &Context, manifest: &Manifest) -> anyhow::Result<()> {
+    for lib in &manifest.exposes.lib {
+        let original = ctx
+            .root
+            .join("pkg")
+            .join("store")
+            .join(&manifest.package.name)
+            .join(manifest.package.version.to_string())
+            .join("lib")
+            .join(&lib.path);
+        let link = ctx.root.join("lib").join(&lib.link);
+
+        fs::symlink(original, link)
+            .await
+            .context("Could not expose library from package file.")?;
+    }
+
+    Ok(())
+}
+
 
 async fn update_state_database(
     manifest: &Manifest,

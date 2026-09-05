@@ -22,6 +22,11 @@ pub async fn uninstall(ctx: &Context, name: &str) -> anyhow::Result<()> {
         .exec(&mut db)
         .await
         .context("Could not get exposed binaries of package.")?;
+    let libs = package
+        .exposes_libs()
+        .exec(&mut db)
+        .await
+        .context("Could not get exposed libraries of package.")?;
 
     for bin in bins {
         let path = ctx.root.join("bin").join(bin.name);
@@ -29,6 +34,19 @@ pub async fn uninstall(ctx: &Context, name: &str) -> anyhow::Result<()> {
         if fs::try_exists(&path)
             .await
             .context("Could not check if symlink to exposed binary existed.")?
+        {
+            fs::remove_file(&path)
+                .await
+                .context(format!("Could not delete symlink at `{}`.", path.display()))?;
+        }
+    }
+
+    for lib in libs {
+        let path = ctx.root.join("lib").join(lib.name);
+
+        if fs::try_exists(&path)
+            .await
+            .context("Could not check if symlink to exposed library existed.")?
         {
             fs::remove_file(&path)
                 .await
