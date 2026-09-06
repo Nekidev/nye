@@ -564,6 +564,7 @@ async fn update_state_database(
 
     for bin in &manifest.exposes.bin {
         toasty::create!(ExposedArtifact {
+            id: nanoid::nanoid!(),
             name: bin.link.clone(),
             kind: ExposedArtifactKind::Binary,
             location: package_installation_path
@@ -582,6 +583,7 @@ async fn update_state_database(
 
     for lib in &manifest.exposes.lib {
         toasty::create!(ExposedArtifact {
+            id: nanoid::nanoid!(),
             name: lib.link.clone(),
             kind: ExposedArtifactKind::Library,
             location: package_installation_path
@@ -600,6 +602,7 @@ async fn update_state_database(
 
     for var in &manifest.exposes.env {
         toasty::create!(ExposedArtifact {
+            id: nanoid::nanoid!(),
             name: var.name.clone(),
             kind: ExposedArtifactKind::Variable,
             location: ctx
