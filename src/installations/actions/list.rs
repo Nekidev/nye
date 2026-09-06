@@ -19,7 +19,7 @@ pub async fn list_artifacts(ctx: &Context, kind: ExposedArtifactKind) -> anyhow:
         .await
         .context("Could not connect to state database.")?;
 
-    ExposedArtifact::all().filter_by_kind(&kind)
+    ExposedArtifact::all().filter_by_kind(kind)
         .exec(&mut db)
         .await
         .context(format!("Could not list all exposed artifacts of kind {kind:?}."))

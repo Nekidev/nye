@@ -481,7 +481,7 @@ async fn expose_envs(ctx: &Context, manifest: &Manifest) -> anyhow::Result<()> {
             .join("env")
             .join(&var.name)
             .join(&manifest.package.name)
-            .join(&manifest.package.version.to_string());
+            .join(manifest.package.version.to_string());
         let location_file = location_dir.join(format!("{counter}.txt"));
 
         fs::create_dir_all(location_dir)
@@ -578,7 +578,7 @@ async fn update_state_database(
                 .join("env")
                 .join(&var.name)
                 .join(&manifest.package.name)
-                .join(&manifest.package.version.to_string())
+                .join(manifest.package.version.to_string())
                 .display()
                 .to_string(),
             package_name: manifest.package.name.clone(),
