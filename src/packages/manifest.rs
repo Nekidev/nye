@@ -16,6 +16,9 @@ pub struct Manifest {
 
     #[serde(default, skip_serializing_if = "ManifestExposes::is_empty")]
     pub exposes: ManifestExposes,
+
+    #[serde(default, skip_serializing_if = "ManifestConsumes::is_empty")]
+    pub consumes: ManifestConsumes,
 }
 
 fn collect_artifacts(
@@ -48,9 +51,9 @@ impl Manifest {
     /// * `manifest` - The project's manifest.
     /// * `target` - The target this package manifest is for.
     pub fn from_project_manifest(manifest: projects::Manifest, target: Target) -> Self {
-        let bin = collect_artifacts(&manifest.exposes.bin, &target);
-        let lib = collect_artifacts(&manifest.exposes.lib, &target);
-        let env = {
+        let exposes_bin = collect_artifacts(&manifest.exposes.bin, &target);
+        let exposes_lib = collect_artifacts(&manifest.exposes.lib, &target);
+        let exposes_env = {
             let mut result = vec![];
 
             for var in &manifest.exposes.env {
@@ -67,13 +70,45 @@ impl Manifest {
             result
         };
 
+        let consumes_env = {
+            let mut result = vec![];
+
+            for var in &manifest.consumes.env {
+                if !var.targets().contains(&target) && !var.targets().is_empty() {
+                    continue;
+                }
+
+                let converted = match var.clone() {
+                    projects::manifest::ManifestConsumesEnv::List {
+                        name,
+                        separator,
+                        targets: _,
+                    } => ManifestConsumesEnv::List { name, separator },
+                    projects::manifest::ManifestConsumesEnv::Value {
+                        name,
+                        value,
+                        targets: _,
+                    } => ManifestConsumesEnv::Value { name, value },
+                };
+
+                result.push(converted);
+            }
+
+            result
+        };
+
         Manifest {
             package: ManifestPackage {
                 name: manifest.package.name,
                 version: manifest.package.version,
                 target,
             },
-            exposes: ManifestExposes { bin, lib, env },
+            exposes: ManifestExposes {
+                bin: exposes_bin,
+                lib: exposes_lib,
+                env: exposes_env,
+            },
+            consumes: ManifestConsumes { env: consumes_env },
         }
     }
 }
@@ -86,6 +121,9 @@ impl Validate for Manifest {
         self.exposes
             .validate()
             .context("The manifest's configured exposed artifacts were invalid.")?;
+        self.consumes
+            .validate()
+            .context("The manifest's configured consumed artifacts were invalid.")?;
 
         Ok(())
     }
@@ -216,11 +254,102 @@ impl Validate for ManifestExposesEnv {
             anyhow::bail!("The package contained an environment variable with an invalid name.");
         }
 
+        if &self.name == "NYE_INSTALLATION" {
+            anyhow::bail!(
+                "NYE_INSTALLATION environment variable cannot be exposed, it's automatically set by nye."
+            );
+        }
+
         if self.value.len() > 512 {
             anyhow::bail!(
                 "The package has an invalid variable exposed `{}`.",
                 self.name
             );
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize, Default)]
+pub struct ManifestConsumes {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub env: Vec<ManifestConsumesEnv>,
+}
+
+impl ManifestConsumes {
+    pub fn is_empty(&self) -> bool {
+        self.env.is_empty()
+    }
+}
+
+impl Validate for ManifestConsumes {
+    fn validate(&self) -> anyhow::Result<()> {
+        let mut names = HashSet::new();
+
+        for var in &self.env {
+            var.validate()
+                .context("A declared consumed environment variable was invalid.")?;
+
+            if names.contains(var.name()) {
+                anyhow::bail!("You cannot declare a consumed environment variable twice.");
+            }
+
+            names.insert(var.name().clone());
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub enum ManifestConsumesEnv {
+    Value { name: String, value: String },
+    List { name: String, separator: String },
+}
+
+impl ManifestConsumesEnv {
+    pub fn name(&self) -> &String {
+        match &self {
+            ManifestConsumesEnv::List { name, .. } => name,
+            ManifestConsumesEnv::Value { name, .. } => name,
+        }
+    }
+}
+
+impl Validate for ManifestConsumesEnv {
+    fn validate(&self) -> anyhow::Result<()> {
+        let regex = Regex::new("^[a-zA-Z0-9_]{1,32}$")
+            .context("This is a bug. The hard-coded validation regex was invalid.")?;
+
+        if !regex.is_match(self.name()) {
+            anyhow::bail!(
+                "Environment variable names must only contain lowercase letters, uppercase letters, numbers, and underscores. `{}` did not fit these requirements.",
+                self.name()
+            );
+        }
+
+        if self.name().as_str() == "NYE_INSTALLATION" {
+            anyhow::bail!(
+                "NYE_INSTALLATION environment variable cannot be consumed, it's always available."
+            );
+        }
+
+        match &self {
+            ManifestConsumesEnv::List { name: _, separator } => {
+                if !(0..=16).contains(&separator.len()) {
+                    anyhow::bail!(
+                        "Consumed environment variables cannot have a separator longer than 16 bytes."
+                    );
+                }
+            }
+            ManifestConsumesEnv::Value { name: _, value } => {
+                if !(0..=512).contains(&value.len()) {
+                    anyhow::bail!(
+                        "Consumed environment variables cannot have a value longer than 512 bytes."
+                    );
+                }
+            }
         }
 
         Ok(())

@@ -82,6 +82,9 @@ pub struct Manifest {
 
     #[serde(default, skip_serializing_if = "ManifestExposes::is_empty")]
     pub exposes: ManifestExposes,
+
+    #[serde(default, skip_serializing_if = "ManifestConsumes::is_empty")]
+    pub consumes: ManifestConsumes,
 }
 
 impl Validate for Manifest {
@@ -107,6 +110,9 @@ impl Validate for Manifest {
         self.exposes
             .validate()
             .context("The manifest's `exposes` field was not valid.")?;
+        self.consumes
+            .validate()
+            .context("The manifest's `consumes` field was not valid.")?;
 
         Ok(())
     }
@@ -266,6 +272,12 @@ impl Validate for ManifestExposesEnv {
             );
         }
 
+        if &self.name == "NYE_INSTALLATION" {
+            anyhow::bail!(
+                "NYE_INSTALLATION environment variable cannot be exposed, it's automatically set by nye."
+            );
+        }
+
         if self.value.len() > 512 {
             anyhow::bail!(
                 "Environment variable exposed values must not exceed 512 bytes in length. `{}` exceeds this limit.",
@@ -278,6 +290,120 @@ impl Validate for ManifestExposesEnv {
                 anyhow::bail!(
                     "The specified target `{target}` for exposed environment variable is not supported by nye."
                 );
+            }
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize, Default)]
+pub struct ManifestConsumes {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub env: Vec<ManifestConsumesEnv>,
+}
+
+impl ManifestConsumes {
+    pub fn is_empty(&self) -> bool {
+        self.env.is_empty()
+    }
+}
+
+impl Validate for ManifestConsumes {
+    fn validate(&self) -> anyhow::Result<()> {
+        let mut names = HashSet::new();
+
+        for var in &self.env {
+            var.validate()
+                .context("A declared consumed environment variable was invalid.")?;
+
+            if names.contains(var.name()) {
+                anyhow::bail!("You cannot declare a consumed environment variable twice.");
+            }
+
+            names.insert(var.name().clone());
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub enum ManifestConsumesEnv {
+    Value {
+        name: String,
+        value: String,
+
+        /// When empty, it defaults to all targets supported by the package.
+        #[serde(default, skip_serializing_if = "HashSet::is_empty")]
+        targets: HashSet<Target>,
+    },
+    List {
+        name: String,
+        separator: String,
+
+        /// When empty, it defaults to all targets supported by the package.
+        #[serde(default, skip_serializing_if = "HashSet::is_empty")]
+        targets: HashSet<Target>,
+    },
+}
+
+impl ManifestConsumesEnv {
+    pub fn name(&self) -> &String {
+        match &self {
+            ManifestConsumesEnv::List { name, .. } => name,
+            ManifestConsumesEnv::Value { name, .. } => name,
+        }
+    }
+
+    pub fn targets(&self) -> &HashSet<Target> {
+        match &self {
+            ManifestConsumesEnv::List { targets, .. } => targets,
+            ManifestConsumesEnv::Value { targets, .. } => targets,
+        }
+    }
+}
+
+impl Validate for ManifestConsumesEnv {
+    fn validate(&self) -> anyhow::Result<()> {
+        let regex = Regex::new("^[a-zA-Z0-9_]{1,32}$")
+            .context("This is a bug. The hard-coded validation regex was invalid.")?;
+
+        if !regex.is_match(self.name()) {
+            anyhow::bail!(
+                "Environment variable names must only contain lowercase letters, uppercase letters, numbers, and underscores. `{}` did not fit these requirements.",
+                self.name()
+            );
+        }
+
+        if self.name().as_str() == "NYE_INSTALLATION" {
+            anyhow::bail!(
+                "NYE_INSTALLATION environment variable cannot be consumed, it's automatically set by nye."
+            );
+        }
+
+        for target in self.targets() {
+            if !target.is_supported() {
+                anyhow::bail!(
+                    "The specified target `{target}` for consumed environment variable is not supported by nye."
+                );
+            }
+        }
+
+        match &self {
+            ManifestConsumesEnv::List { separator, .. } => {
+                if !(0..=16).contains(&separator.len()) {
+                    anyhow::bail!(
+                        "Consumed environment variables cannot have a separator longer than 16 bytes."
+                    );
+                }
+            }
+            ManifestConsumesEnv::Value { value, .. } => {
+                if !(0..=512).contains(&value.len()) {
+                    anyhow::bail!(
+                        "Consumed environment variables cannot have a value longer than 512 bytes."
+                    );
+                }
             }
         }
 

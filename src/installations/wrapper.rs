@@ -22,11 +22,13 @@ pub struct BinaryWrapperBinary {
     pub path: String,
 }
 
+#[derive(Clone)]
 pub struct BinaryWrapperDeclaredVariable {
     pub name: String,
     pub value: String,
 }
 
+#[derive(Clone)]
 pub struct BinaryWrapperConsumedVariable {
     pub name: String,
     pub separator: String,

@@ -16,9 +16,11 @@ use tokio_util::compat::FuturesAsyncReadCompatExt;
 use crate::installations::context::Context;
 use crate::installations::database::{self, ExposedArtifact, ExposedArtifactKind, Package};
 use crate::installations::wrapper::{
-    BinaryWrapper, BinaryWrapperBinary, BinaryWrapperDeclaredVariable, BinaryWrapperPackage,
+    BinaryWrapper, BinaryWrapperBinary, BinaryWrapperConsumedVariable,
+    BinaryWrapperDeclaredVariable, BinaryWrapperPackage,
 };
 use crate::packages::Manifest;
+use crate::packages::manifest::ManifestConsumesEnv;
 use crate::semver::Semver;
 use crate::targets::Target;
 use crate::validation::{self, Validate};
@@ -391,13 +393,42 @@ async fn extract_zip(
 }
 
 async fn expose_bins(ctx: &Context, manifest: &Manifest) -> anyhow::Result<()> {
+    let installation =
+        ctx.get_package_installation_path(&manifest.package.name, &manifest.package.version);
+
+    let consumed_variables = {
+        let mut result = vec![];
+
+        for var in &manifest.consumes.env {
+            if let ManifestConsumesEnv::List { name, separator } = var {
+                result.push(BinaryWrapperConsumedVariable {
+                    name: name.clone(),
+                    separator: separator.clone(),
+                })
+            }
+        }
+
+        result
+    };
+    let declared_variables = {
+        let mut result = vec![BinaryWrapperDeclaredVariable {
+            name: String::from("NYE_INSTALLATION"),
+            value: installation.display().to_string(),
+        }];
+
+        for var in &manifest.consumes.env {
+            if let ManifestConsumesEnv::Value { name, value } = var {
+                result.push(BinaryWrapperDeclaredVariable {
+                    name: name.clone(),
+                    value: value.clone(),
+                })
+            }
+        }
+
+        result
+    };
+
     for bin in &manifest.exposes.bin {
-        let installation = ctx
-            .root
-            .join("pkg")
-            .join("store")
-            .join(&manifest.package.name)
-            .join(manifest.package.version.to_string());
         let original = installation.join("bin").join(&bin.path);
         let link = ctx.root.join("bin").join(&bin.link);
 
@@ -410,11 +441,8 @@ async fn expose_bins(ctx: &Context, manifest: &Manifest) -> anyhow::Result<()> {
                 name: manifest.package.name.clone(),
                 version: manifest.package.version.clone(),
             },
-            consumed_variables: vec![],
-            declared_variables: vec![BinaryWrapperDeclaredVariable {
-                name: String::from("NYE_INSTALLATION"),
-                value: installation.display().to_string(),
-            }],
+            consumed_variables: consumed_variables.clone(),
+            declared_variables: declared_variables.clone(),
         };
 
         let mut script = wrapper
@@ -501,7 +529,8 @@ async fn expose_envs(ctx: &Context, manifest: &Manifest) -> anyhow::Result<()> {
             } else {
                 None
             }
-        }).to_string();
+        })
+        .to_string();
 
         fs::write(&location_file, &value)
             .await
