@@ -131,7 +131,35 @@ pub struct UninstallSubcommandArgs {
 
 #[derive(clap::Parser)]
 pub struct ListSubcommandArgs {
-    /// Display instructions on how to use nye list.
+    #[command(subcommand)]
+    pub subcommand: Option<ListSubcommandSubcommand>,
+
+    /// Display instructions on how to use nye list and its subcommands.
+    #[arg(short, long, action = ArgAction::Help)]
+    pub help: Option<bool>,
+}
+
+#[derive(clap::Subcommand)]
+pub enum ListSubcommandSubcommand {
+    /// Lists all exposed binaries by installed packages.
+    #[clap(visible_alias = "b")]
+    Bins(ListSubcommandBinsSubcommandArgs),
+
+    /// Lists all exposed libraries by installed packages.
+    #[clap(visible_alias = "l")]
+    Libs(ListSubcommandLibsSubcommandArgs),
+}
+
+#[derive(clap::Parser)]
+pub struct ListSubcommandBinsSubcommandArgs {
+    /// Display instructions on how to use nye list bins.
+    #[arg(short, long, action = ArgAction::Help)]
+    pub help: Option<bool>,
+}
+
+#[derive(clap::Parser)]
+pub struct ListSubcommandLibsSubcommandArgs {
+    /// Display instructions on how to use nye list libs.
     #[arg(short, long, action = ArgAction::Help)]
     pub help: Option<bool>,
 }

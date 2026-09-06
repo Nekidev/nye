@@ -8,6 +8,7 @@ default-run = "nye"
 
 [dependencies]
 anyhow = { version = "1.0.104", features = ["backtrace"] }
+askama = "0.16.1"
 async_zip = { version = "0.0.19", features = ["tokio", "tokio-fs"] }
 clap = { version = "4.6.6", features = ["derive", "env", "wrap_help"] }
 colored = "3.1.1"
@@ -19,6 +20,7 @@ path-clean = "1.0.1"
 pathdiff = "0.2.3"
 regex = "1.13.1"
 serde = { version = "1.0.229", features = ["derive"] }
+tabled = "0.22.0"
 toasty = { version = "0.10.0", features = ["sqlite", "jiff", "migration"] }
 toasty-cli = "0.10.0"
 tokio = { version = "1.53.1", features = ["fs", "io-std", "io-util", "macros", "rt", "rt-multi-thread"] }

@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use anyhow::Context as AnyhowContext;
+use askama::Template;
 use async_zip::tokio::read::seek::ZipFileReader;
 use jiff::Zoned;
 use toasty::Transaction;
@@ -13,7 +14,10 @@ use tokio::io::{self, AsyncReadExt, BufReader};
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 
 use crate::installations::context::Context;
-use crate::installations::database::{self, ExposedBin, Package};
+use crate::installations::database::{self, ExposedBin, ExposedLib, Package};
+use crate::installations::wrapper::{
+    BinaryWrapper, BinaryWrapperBinary, BinaryWrapperDeclaredVariable, BinaryWrapperPackage,
+};
 use crate::packages::Manifest;
 use crate::semver::Semver;
 use crate::targets::Target;
@@ -41,7 +45,7 @@ pub async fn install(ctx: Context, path: PathBuf) -> anyhow::Result<Manifest> {
         Target::get_current().context("Could not get the current system's target.")?;
     if manifest.package.target != current_target {
         anyhow::bail!(
-            "This package file was packed for a different target. Your system is `{}`, yet the package file was created for {}. Try with a file for your target instead.",
+            "This package file was packed for a different target. Your system is `{}`, yet the package file was created for `{}`. Try with a file for your target instead.",
             current_target,
             manifest.package.target
         );
@@ -76,7 +80,7 @@ pub async fn install(ctx: Context, path: PathBuf) -> anyhow::Result<Manifest> {
         .await
         .context("An error occurred while exposing libraries.")?;
 
-    update_state_database(&manifest, &mut transaction)
+    update_state_database(&ctx, &manifest, &mut transaction)
         .await
         .context("Could not update state database after installing.")?;
 
@@ -215,6 +219,9 @@ async fn check_collissions(
     check_exposed_bin_collissions(transaction, manifest)
         .await
         .context("An error occurred while checking for exposed binary collissions.")?;
+    check_exposed_lib_collissions(transaction, manifest)
+        .await
+        .context("An error occurred while checking for exposed library collissions.")?;
 
     Ok(())
 }
@@ -272,6 +279,30 @@ async fn check_exposed_bin_collissions(
 
     Ok(())
 }
+
+async fn check_exposed_lib_collissions(
+    transaction: &mut Transaction<'_>,
+    manifest: &Manifest,
+) -> anyhow::Result<()> {
+    let libraries = ExposedLib::all()
+        .exec(transaction)
+        .await
+        .context("Could not get all exposed libraries from state database.")?;
+
+    for library_in_state in &libraries {
+        for library_in_manifest in &manifest.exposes.lib {
+            if library_in_state.name == library_in_manifest.link {
+                anyhow::bail!(
+                    "The exposed library `{}` in this package collides with an already-installed library.",
+                    library_in_manifest.link
+                );
+            }
+        }
+    }
+
+    Ok(())
+}
+
 
 async fn extract_zip(
     ctx: &Context,
@@ -357,19 +388,50 @@ async fn extract_zip(
 
 async fn expose_bins(ctx: &Context, manifest: &Manifest) -> anyhow::Result<()> {
     for bin in &manifest.exposes.bin {
-        let original = ctx
+        let installation = ctx
             .root
             .join("pkg")
             .join("store")
             .join(&manifest.package.name)
-            .join(manifest.package.version.to_string())
-            .join("bin")
-            .join(&bin.path);
+            .join(manifest.package.version.to_string());
+        let original = installation.join("bin").join(&bin.path);
         let link = ctx.root.join("bin").join(&bin.link);
 
-        fs::symlink(original, link)
+        let wrapper = BinaryWrapper {
+            namespace: ctx.root.display().to_string(),
+            binary: BinaryWrapperBinary {
+                path: original.display().to_string(),
+            },
+            package: BinaryWrapperPackage {
+                name: manifest.package.name.clone(),
+                version: manifest.package.version.clone(),
+            },
+            consumed_variables: vec![],
+            declared_variables: vec![BinaryWrapperDeclaredVariable {
+                name: String::from("NYE_INSTALLATION"),
+                value: installation.display().to_string(),
+            }],
+        };
+
+        let mut script = wrapper
+            .render()
+            .context("Could not render binary wrapper shell script.")?;
+
+        loop {
+            if script.replace("\n\n\n", "\n\n") != script {
+                script = script.replace("\n\n\n", "\n\n");
+            } else {
+                break;
+            }
+        }
+
+        fs::write(&link, script.as_bytes())
             .await
-            .context("Could not expose binary from package file.")?;
+            .context("Could not write binary wrapper shell script to link location.")?;
+
+        fs::set_permissions(&link, Permissions::from_mode(0o544))
+            .await
+            .context("Could not set execution permissions to link.")?;
     }
 
     Ok(())
@@ -395,14 +457,19 @@ async fn expose_libs(ctx: &Context, manifest: &Manifest) -> anyhow::Result<()> {
     Ok(())
 }
 
-
 async fn update_state_database(
+    ctx: &Context,
     manifest: &Manifest,
     transaction: &mut Transaction<'_>,
 ) -> anyhow::Result<()> {
+    let package_installation_path = ctx
+        .get_package_installation_path(&manifest.package.name, &manifest.package.version)
+        .context("Could not get package installation path.")?;
+
     toasty::create!(Package {
         name: manifest.package.name.clone(),
         version: manifest.package.version.to_string(),
+        location: package_installation_path.display().to_string(),
         created_at: Zoned::now(),
         updated_at: Zoned::now(),
     })
@@ -413,6 +480,11 @@ async fn update_state_database(
     for bin in &manifest.exposes.bin {
         toasty::create!(ExposedBin {
             name: bin.link.clone(),
+            location: package_installation_path
+                .join("bin")
+                .join(&bin.path)
+                .display()
+                .to_string(),
             package_name: manifest.package.name.clone(),
             created_at: Zoned::now(),
             updated_at: Zoned::now(),
@@ -420,6 +492,23 @@ async fn update_state_database(
         .exec(transaction)
         .await
         .context("Could not insert exposed bin into state database.")?;
+    }
+
+    for lib in &manifest.exposes.lib {
+        toasty::create!(ExposedLib {
+            name: lib.link.clone(),
+            location: package_installation_path
+                .join("lib")
+                .join(&lib.path)
+                .display()
+                .to_string(),
+            package_name: manifest.package.name.clone(),
+            created_at: Zoned::now(),
+            updated_at: Zoned::now(),
+        })
+        .exec(transaction)
+        .await
+        .context("Could not insert exposed lib into state database.")?;
     }
 
     Ok(())

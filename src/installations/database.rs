@@ -11,6 +11,8 @@ pub struct Package {
     pub name: String,
     pub version: String,
 
+    pub location: String,
+
     #[has_many]
     pub exposes_bins: Deferred<Vec<ExposedBin>>,
     #[has_many]
@@ -25,6 +27,8 @@ pub struct ExposedBin {
     #[key]
     pub name: String,
 
+    pub location: String,
+
     #[belongs_to(key = package_name, references = name)]
     pub package: Deferred<Package>,
     #[index]
@@ -38,6 +42,8 @@ pub struct ExposedBin {
 pub struct ExposedLib {
     #[key]
     pub name: String,
+
+    pub location: String,
 
     #[belongs_to(key = package_name, references = name)]
     pub package: Deferred<Package>,

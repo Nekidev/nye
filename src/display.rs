@@ -2,6 +2,10 @@ use std::fmt::Display;
 use std::time::Duration;
 
 use indicatif::{ProgressBar, ProgressStyle};
+use tabled::Table;
+use tabled::builder::Builder;
+use tabled::settings::object::Columns;
+use tabled::settings::{Modify, Padding, Style};
 
 /// Displays a spinner loading bar on the console.
 ///
@@ -61,4 +65,39 @@ where
     }
 
     string
+}
+
+/// Creates an aligned list using a [`Table`].
+///
+/// For example,
+/// ```
+/// let rows = vec![
+///     ["mike", "wazowski"],
+///     ["obi-wan", "kenobi"],
+/// ];
+///
+/// let table = display::list_table(rows);
+/// println!("{table}");
+/// ```
+///
+/// Arguments:
+/// * `items` - The rows to add to the table.
+///
+/// Returns:
+/// [`Table`] - The list table. It can be rendered via `println!("{table}");`.
+pub fn list_table<T, I>(items: impl IntoIterator<Item = T>) -> Table
+where
+    T: IntoIterator<Item = I>,
+    I: Into<String>,
+{
+    let mut builder = Builder::new();
+    for item in items.into_iter() {
+        builder.push_record(item);
+    }
+
+    let mut table = builder.build();
+    table.with(Style::empty());
+    table.with(Modify::new(Columns::first()).with(Padding::zero()));
+
+    table
 }
