@@ -1,3 +1,3 @@
 pub mod manifest;
 
-pub use manifest::{Manifest, ManifestExposes, ManifestExposesBin, ManifestPackage};
+pub use manifest::{Manifest, ManifestExposes, ManifestExposesArtifact, ManifestPackage};

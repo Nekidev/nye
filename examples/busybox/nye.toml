@@ -414,3 +414,7 @@ links = [
     "zcip",
     "ldscript",
 ]
+
+[[exposes.env]]
+name = "PYTHONPATH"
+value = "$NYE_INSTALLATION/lib"

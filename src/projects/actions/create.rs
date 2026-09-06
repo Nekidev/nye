@@ -91,6 +91,7 @@ pub async fn create(path: PathBuf, name: Option<String>) -> anyhow::Result<Manif
         exposes: ManifestExposes {
             bin: Vec::new(),
             lib: Vec::new(),
+            env: Vec::new(),
         },
     };
     let manifest_string =

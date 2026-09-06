@@ -57,12 +57,11 @@ impl Context {
         &self,
         package_name: impl ToString,
         package_version: impl ToString,
-    ) -> anyhow::Result<PathBuf> {
-        Ok(self
-            .root
+    ) -> PathBuf {
+        self.root
             .join("pkg")
             .join("store")
             .join(package_name.to_string())
-            .join(package_version.to_string()))
+            .join(package_version.to_string())
     }
 }

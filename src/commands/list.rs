@@ -32,7 +32,6 @@ pub async fn run(args: &Args, _cmd: &ListSubcommandArgs) -> anyhow::Result<()> {
                     .blue()
                     .to_string(),
                 ctx.get_package_installation_path(&package.name, &package.version)
-                    .context("Could not get package's installation path.")?
                     .display()
                     .to_string()
                     .dimmed()

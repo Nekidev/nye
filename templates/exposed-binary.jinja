@@ -15,7 +15,8 @@ if ! command -v /bin/ee >/dev/null 2>&1; then
     exit 127
 fi
 
-# Environment variables are stored under `namespace/pkg/env/{var-name}/{package-name}/{value-n}.txt`
+# Environment variables are stored under
+# `{namespace}/env/{var-name}/{package-name}/{package-version}/{value-n}.txt`.
 #
 # This function iterates through those exposed values and chains them using the separator declared
 # by the manifest.
@@ -24,22 +25,24 @@ __env_var_consume() {
     var_name="$2"
     var_separator="$3"
 
-    if [ -d "$namespace/$var_name" ]; then
+    if [ -d "$namespace/env/$var_name" ]; then
         printf ""
         return 0
     fi
 
     result=""
 
-    for package_name in "$namespace/$var_name/*"; do
-        for value_file in "$namespace/$var_name/$package_name/*.txt"; do
-            value=$(/bin/ee < "$namespace/$var_name/$package_name/$value_file")
-            
-            if [ -z "$result" ]; then
-                result="$value"
-            else
-                result="$result$var_separator$value"
-            fi
+    for package_name in "$namespace/env/$var_name/*"; do
+        for package_version in "$namespace/env/$var_name/$package_name/*"; do
+            for value_file in "$namespace/env/$var_name_/$package_name/$package_version/*.txt"; do
+                value=$(/bin/ee < "$namespace/env/$var_name/$package_name/$package_version/$value_file")
+                
+                if [ -z "$result" ]; then
+                    result="$value"
+                else
+                    result="$result$var_separator$value"
+                fi
+            done
         done
     done
 

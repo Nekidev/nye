@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 
 use anyhow::Context;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use crate::semver::Semver;
@@ -17,6 +18,25 @@ pub struct Manifest {
     pub exposes: ManifestExposes,
 }
 
+fn collect_artifacts(
+    artifacts: &[projects::manifest::ManifestExposesArtifact],
+    target: &Target,
+) -> Vec<ManifestExposesArtifact> {
+    let mut result = Vec::new();
+    for artifact in artifacts {
+        if artifact.targets.contains(target) || artifact.targets.is_empty() {
+            for link in &artifact.links {
+                result.push(ManifestExposesArtifact {
+                    link: link.clone(),
+                    path: artifact.path.clone(),
+                });
+            }
+        }
+    }
+
+    result
+}
+
 impl Manifest {
     /// Returns a package manifest from a project manifest.
     ///
@@ -28,31 +48,24 @@ impl Manifest {
     /// * `manifest` - The project's manifest.
     /// * `target` - The target this package manifest is for.
     pub fn from_project_manifest(manifest: projects::Manifest, target: Target) -> Self {
-        let mut bin = Vec::new();
-        for exposed_bin in manifest.exposes.bin {
-            if (!exposed_bin.targets.is_empty() && exposed_bin.targets.contains(&target))
-                || exposed_bin.targets.is_empty()
-            {
-                for link in exposed_bin.links {
-                    bin.push(ManifestExposesBin {
-                        link,
-                        path: exposed_bin.path.clone(),
-                    });
-                }
-            }
-        }
+        let bin = collect_artifacts(&manifest.exposes.bin, &target);
+        let lib = collect_artifacts(&manifest.exposes.lib, &target);
+        let env = {
+            let mut result = vec![];
 
-        let mut lib = Vec::new();
-        for exposed_lib in manifest.exposes.lib {
-            if (!exposed_lib.targets.is_empty() && exposed_lib.targets.contains(&target))
-                || exposed_lib.targets.is_empty()
-            {
-                lib.push(ManifestExposesLib {
-                    link: exposed_lib.link.clone(),
-                    path: exposed_lib.path.clone(),
+            for var in &manifest.exposes.env {
+                if !var.targets.contains(&target) && !var.targets.is_empty() {
+                    continue;
+                }
+
+                result.push(ManifestExposesEnv {
+                    name: var.name.clone(),
+                    value: var.value.clone(),
                 });
             }
-        }
+
+            result
+        };
 
         Manifest {
             package: ManifestPackage {
@@ -60,7 +73,7 @@ impl Manifest {
                 version: manifest.package.version,
                 target,
             },
-            exposes: ManifestExposes { bin, lib },
+            exposes: ManifestExposes { bin, lib, env },
         }
     }
 }
@@ -108,30 +121,46 @@ impl Validate for ManifestPackage {
 #[derive(Serialize, Deserialize, Default)]
 pub struct ManifestExposes {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub bin: Vec<ManifestExposesBin>,
+    pub bin: Vec<ManifestExposesArtifact>,
 
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub lib: Vec<ManifestExposesLib>,
+    pub lib: Vec<ManifestExposesArtifact>,
+
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub env: Vec<ManifestExposesEnv>,
+}
+
+fn validate_artifacts(artifacts: &[ManifestExposesArtifact]) -> anyhow::Result<()> {
+    let mut links = HashSet::new();
+    for artifact in artifacts {
+        artifact.validate().context(format!(
+            "The exposed artifact `{}` was incorrectly configured.",
+            artifact.path.display()
+        ))?;
+
+        if links.contains(&artifact.link) {
+            anyhow::bail!(
+                "Two or more exposed artifacts conflict on the linked name `{}`.",
+                artifact.link
+            )
+        }
+
+        links.insert(artifact.link.clone());
+    }
+
+    Ok(())
 }
 
 impl Validate for ManifestExposes {
     fn validate(&self) -> anyhow::Result<()> {
-        let mut links = HashSet::new();
+        validate_artifacts(&self.bin)
+            .context("The exposed binaries were incorrectly configured.")?;
+        validate_artifacts(&self.lib)
+            .context("The exposed libraries were incorrectly configured.")?;
 
-        for bin in &self.bin {
-            bin.validate().context(format!(
-                "The exposed binary `{}` was incorrectly configured.",
-                bin.path.display()
-            ))?;
-
-            if links.contains(&bin.link) {
-                anyhow::bail!(
-                    "Two or more exposed binaries conflict on the linked name `{}`.",
-                    bin.link
-                )
-            }
-
-            links.insert(bin.link.clone());
+        for var in &self.env {
+            var.validate()
+                .context("The exposed environment variables were incorrectly configured.")?;
         }
 
         Ok(())
@@ -145,15 +174,15 @@ impl ManifestExposes {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct ManifestExposesBin {
+pub struct ManifestExposesArtifact {
     pub link: String,
     pub path: PathBuf,
 }
 
-impl Validate for ManifestExposesBin {
+impl Validate for ManifestExposesArtifact {
     fn validate(&self) -> anyhow::Result<()> {
         validation::is_safe_path(&self.path).context(format!(
-            "The specified binary path `{}` is not safe.",
+            "The specified artifact path `{}` is not safe.",
             self.path.display()
         ))?;
 
@@ -164,7 +193,7 @@ impl Validate for ManifestExposesBin {
         }
 
         validation::is_safe_path_component(&self.link).context(format!(
-            "The specified binary linked name `{}` was not a safe path component.",
+            "The specified artifact linked name `{}` was not a safe path component.",
             self.link
         ))?;
 
@@ -172,29 +201,27 @@ impl Validate for ManifestExposesBin {
     }
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct ManifestExposesLib {
-    pub link: String,
-    pub path: PathBuf,
+#[derive(Clone, Serialize, Deserialize)]
+pub struct ManifestExposesEnv {
+    pub name: String,
+    pub value: String,
 }
 
-impl Validate for ManifestExposesLib {
+impl Validate for ManifestExposesEnv {
     fn validate(&self) -> anyhow::Result<()> {
-        validation::is_safe_path(&self.path).context(format!(
-            "The specified library path `{}` is not safe.",
-            self.path.display()
-        ))?;
+        let regex = Regex::new("^[a-zA-Z0-9_]{1,32}$")
+            .context("This is a bug. The hard-coded validation regex was invalid.")?;
 
-        if !(1..=32).contains(&self.link.len()) {
-            anyhow::bail!(
-                "Linked names must be at least one character long and up to 32 characters long."
-            );
+        if !regex.is_match(&self.name) {
+            anyhow::bail!("The package contained an environment variable with an invalid name.");
         }
 
-        validation::is_safe_path_component(&self.link).context(format!(
-            "The specified library linked name `{}` was not a safe path component.",
-            self.link
-        ))?;
+        if self.value.len() > 512 {
+            anyhow::bail!(
+                "The package has an invalid variable exposed `{}`.",
+                self.name
+            );
+        }
 
         Ok(())
     }

@@ -5,7 +5,7 @@ use crate::args::{Args, ListSubcommandBinsSubcommandArgs};
 use crate::display;
 use crate::installations::actions::list;
 use crate::installations::context::Context;
-use crate::installations::database;
+use crate::installations::database::{self, ExposedArtifactKind};
 
 pub async fn run(args: &Args, _cmd: &ListSubcommandBinsSubcommandArgs) -> anyhow::Result<()> {
     let ctx = Context::get_current(args.system)
@@ -15,7 +15,7 @@ pub async fn run(args: &Args, _cmd: &ListSubcommandBinsSubcommandArgs) -> anyhow
     let mut db = database::connect(ctx.get_database_url())
         .await
         .context("Could not connect to state database.")?;
-    let mut binaries = list::list_bins(&ctx)
+    let mut binaries = list::list_artifacts(&ctx, ExposedArtifactKind::Binary)
         .await
         .context("Could not list all exposed binaries.")?;
 

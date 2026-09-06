@@ -72,11 +72,13 @@ systems. The file system assumed looks like this:
 /bin                       -  System-wide exposed installed binaries.                                     -  Owner: root
 /etc                       -  System-wide package-specific editable text configuration file directories.  -  Owner: root
 /etc/{package-name}        -  System-wide package-specific editable text configuration files.             -  Owner: root
+/env                       -  System-wide exposed environment variables.                                  -  Owner: root
 /pkg                       -  System-wide package installation context.                                   -  Owner: root
 /pkg/store                 -  Store for system-wide installed packages.                                   -  Owner: root
 /usr                       -  User-specific data directories.                                             -  Owner: root
 /usr/{username}            -  User-specific data.                                                         -  Owner: {username}
 /usr/{username}/bin        -  User-specific exposed installed binaries.                                   -  Owner: {username}
+/usr/{username}/env        -  User-specific exposed environment variables.                                -  Owner: {username}
 /usr/{username}/pkg        -  User-specific package installation context.                                 -  Owner: {username}
 /usr/{username}/pkg/store  -  Store for user-specific installed packages.                                 -  Owner: {username}
 /usr/{username}/room       -  User-specific user data.                                                    -  Owner: {username}

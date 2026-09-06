@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use anyhow::Context;
+use regex::Regex;
 use serde::de::Visitor;
 use serde::{Deserialize, Serialize};
 
@@ -148,53 +149,51 @@ impl Validate for ManifestTarget {
 #[derive(Clone, Serialize, Deserialize, Default)]
 pub struct ManifestExposes {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub bin: Vec<ManifestExposesBin>,
+    pub bin: Vec<ManifestExposesArtifact>,
 
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub lib: Vec<ManifestExposesLib>,
+    pub lib: Vec<ManifestExposesArtifact>,
+
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub env: Vec<ManifestExposesEnv>,
 }
 
 impl ManifestExposes {
     fn is_empty(&self) -> bool {
-        self.lib.is_empty() && self.lib.is_empty()
+        self.lib.is_empty() && self.lib.is_empty() && self.env.is_empty()
     }
+}
+
+fn validate_artifact_duplicate_links(artifacts: &[ManifestExposesArtifact]) -> anyhow::Result<()> {
+    let mut links = HashSet::new();
+    for artifact in artifacts {
+        artifact.validate().context(format!(
+            "The exposed artifact `{}` was incorrectly configured.",
+            artifact.path.display()
+        ))?;
+
+        for link in &artifact.links {
+            if links.contains(link) {
+                anyhow::bail!("Two or more exposed artifacts conflict on the linked name `{link}`.")
+            }
+
+            links.insert(link);
+        }
+    }
+
+    Ok(())
 }
 
 impl Validate for ManifestExposes {
     fn validate(&self) -> anyhow::Result<()> {
-        let mut bin_links = HashSet::new();
-        for bin in &self.bin {
-            bin.validate().context(format!(
-                "The exposed binary `{}` was incorrectly configured.",
-                bin.path.display()
-            ))?;
+        validate_artifact_duplicate_links(&self.bin)
+            .context("One or more exposed binaries are incorrectly configured.")?;
+        validate_artifact_duplicate_links(&self.lib)
+            .context("One or more exposed libraries are incorrectly configured.")?;
 
-            for link in &bin.links {
-                if bin_links.contains(link) {
-                    anyhow::bail!(
-                        "Two or more exposed binaries conflict on the linked name `{link}`."
-                    )
-                }
-
-                bin_links.insert(link);
-            }
-        }
-
-        let mut lib_links = HashSet::new();
-        for lib in &self.lib {
-            lib.validate().context(format!(
-                "The exposed library `{}` was incorrectly configured.",
-                lib.path.display()
-            ))?;
-
-            if lib_links.contains(&lib.link) {
-                anyhow::bail!(
-                    "Two or more exposed libraries conflict on the linked name `{}`.",
-                    lib.link
-                )
-            }
-
-            lib_links.insert(&lib.link);
+        for env in &self.env {
+            env.validate()
+                .context("An exposed environment variable was incorrectly configured.")?;
         }
 
         Ok(())
@@ -202,7 +201,7 @@ impl Validate for ManifestExposes {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct ManifestExposesBin {
+pub struct ManifestExposesArtifact {
     pub path: PathBuf,
 
     /// When empty, it defaults to the file name.
@@ -214,10 +213,10 @@ pub struct ManifestExposesBin {
     pub targets: HashSet<Target>,
 }
 
-impl Validate for ManifestExposesBin {
+impl Validate for ManifestExposesArtifact {
     fn validate(&self) -> anyhow::Result<()> {
         validation::is_safe_path(&self.path).context(format!(
-            "The specified bin path `{}` is not safe.",
+            "The specified artifact path `{}` is not safe.",
             self.path.display()
         ))?;
 
@@ -235,7 +234,9 @@ impl Validate for ManifestExposesBin {
 
         for target in &self.targets {
             if !target.is_supported() {
-                anyhow::bail!("The specified target `{target}` is not supported by nye.");
+                anyhow::bail!(
+                    "The specified target `{target}` for exposed artifact is not supported by nye."
+                );
             }
         }
 
@@ -244,39 +245,39 @@ impl Validate for ManifestExposesBin {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct ManifestExposesLib {
-    pub path: PathBuf,
-
-    /// When empty, it defaults to the file name.
-    #[serde(default)]
-    pub link: String,
+pub struct ManifestExposesEnv {
+    pub name: String,
+    pub value: String,
 
     /// When empty, it defaults to all targets supported by the package.
     #[serde(default, skip_serializing_if = "HashSet::is_empty")]
     pub targets: HashSet<Target>,
 }
 
-impl Validate for ManifestExposesLib {
+impl Validate for ManifestExposesEnv {
     fn validate(&self) -> anyhow::Result<()> {
-        validation::is_safe_path(&self.path).context(format!(
-            "The specified lib path `{}` is not safe.",
-            self.path.display()
-        ))?;
+        let regex = Regex::new("^[a-zA-Z0-9_]{1,32}$")
+            .context("This is a bug. The hard-coded validation regex was invalid.")?;
 
-        if !(1..=32).contains(&self.link.len()) {
+        if !regex.is_match(&self.name) {
             anyhow::bail!(
-                "Linked names must be at least one character long and up to 32 characters long."
+                "Environment variable names must only contain lowercase letters, uppercase letters, numbers, and underscores. `{}` did not fit these requirements.",
+                self.name
             );
         }
 
-        validation::is_safe_path_component(&self.link).context(format!(
-            "The specified linked name `{}` was not a safe path component.",
-            self.link
-        ))?;
+        if self.value.len() > 512 {
+            anyhow::bail!(
+                "Environment variable exposed values must not exceed 512 bytes in length. `{}` exceeds this limit.",
+                self.name
+            );
+        }
 
         for target in &self.targets {
             if !target.is_supported() {
-                anyhow::bail!("The specified target `{target}` is not supported by nye.");
+                anyhow::bail!(
+                    "The specified target `{target}` for exposed environment variable is not supported by nye."
+                );
             }
         }
 

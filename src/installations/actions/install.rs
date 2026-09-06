@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs::Permissions;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
@@ -14,7 +14,7 @@ use tokio::io::{self, AsyncReadExt, BufReader};
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 
 use crate::installations::context::Context;
-use crate::installations::database::{self, ExposedBin, ExposedLib, Package};
+use crate::installations::database::{self, ExposedArtifact, ExposedArtifactKind, Package};
 use crate::installations::wrapper::{
     BinaryWrapper, BinaryWrapperBinary, BinaryWrapperDeclaredVariable, BinaryWrapperPackage,
 };
@@ -79,6 +79,9 @@ pub async fn install(ctx: Context, path: PathBuf) -> anyhow::Result<Manifest> {
     expose_libs(&ctx, &manifest)
         .await
         .context("An error occurred while exposing libraries.")?;
+    expose_envs(&ctx, &manifest)
+        .await
+        .context("An error occurred while exposing environment variables.")?;
 
     update_state_database(&ctx, &manifest, &mut transaction)
         .await
@@ -261,7 +264,8 @@ async fn check_exposed_bin_collissions(
     transaction: &mut Transaction<'_>,
     manifest: &Manifest,
 ) -> anyhow::Result<()> {
-    let binaries = ExposedBin::all()
+    let binaries = ExposedArtifact::all()
+        .filter_by_kind(ExposedArtifactKind::Binary)
         .exec(transaction)
         .await
         .context("Could not get all exposed binaries from state database.")?;
@@ -284,7 +288,8 @@ async fn check_exposed_lib_collissions(
     transaction: &mut Transaction<'_>,
     manifest: &Manifest,
 ) -> anyhow::Result<()> {
-    let libraries = ExposedLib::all()
+    let libraries = ExposedArtifact::all()
+        .filter_by_kind(ExposedArtifactKind::Library)
         .exec(transaction)
         .await
         .context("Could not get all exposed libraries from state database.")?;
@@ -302,7 +307,6 @@ async fn check_exposed_lib_collissions(
 
     Ok(())
 }
-
 
 async fn extract_zip(
     ctx: &Context,
@@ -429,7 +433,13 @@ async fn expose_bins(ctx: &Context, manifest: &Manifest) -> anyhow::Result<()> {
             .await
             .context("Could not write binary wrapper shell script to link location.")?;
 
-        fs::set_permissions(&link, Permissions::from_mode(0o544))
+        let permissions = if ctx.is_system {
+            Permissions::from_mode(0o555)
+        } else {
+            Permissions::from_mode(0o544)
+        };
+
+        fs::set_permissions(&link, permissions)
             .await
             .context("Could not set execution permissions to link.")?;
     }
@@ -457,14 +467,60 @@ async fn expose_libs(ctx: &Context, manifest: &Manifest) -> anyhow::Result<()> {
     Ok(())
 }
 
+async fn expose_envs(ctx: &Context, manifest: &Manifest) -> anyhow::Result<()> {
+    let mut counters = HashMap::new();
+
+    for var in &manifest.exposes.env {
+        let counter = counters
+            .entry(var.name.clone())
+            .and_modify(|v| *v += 1)
+            .or_insert(0);
+
+        let location_dir = ctx
+            .root
+            .join("env")
+            .join(&var.name)
+            .join(&manifest.package.name)
+            .join(&manifest.package.version.to_string());
+        let location_file = location_dir.join(format!("{counter}.txt"));
+
+        fs::create_dir_all(location_dir)
+            .await
+            .context("Could not create required directories to store env var file.")?;
+
+        let value = shellexpand::env_with_context_no_errors(&var.value, |var_name| {
+            if var_name == "NYE_INSTALLATION" {
+                Some(
+                    ctx.get_package_installation_path(
+                        &manifest.package.name,
+                        &manifest.package.version,
+                    )
+                    .display()
+                    .to_string(),
+                )
+            } else {
+                None
+            }
+        }).to_string();
+
+        fs::write(&location_file, &value)
+            .await
+            .context("Could not write environment variable value to file.")?;
+        fs::set_permissions(&location_file, Permissions::from_mode(0o444))
+            .await
+            .context("Could not set read-only permissions to env var file.")?;
+    }
+
+    Ok(())
+}
+
 async fn update_state_database(
     ctx: &Context,
     manifest: &Manifest,
     transaction: &mut Transaction<'_>,
 ) -> anyhow::Result<()> {
-    let package_installation_path = ctx
-        .get_package_installation_path(&manifest.package.name, &manifest.package.version)
-        .context("Could not get package installation path.")?;
+    let package_installation_path =
+        ctx.get_package_installation_path(&manifest.package.name, &manifest.package.version);
 
     toasty::create!(Package {
         name: manifest.package.name.clone(),
@@ -478,8 +534,9 @@ async fn update_state_database(
     .context("Could not insert package into state database.")?;
 
     for bin in &manifest.exposes.bin {
-        toasty::create!(ExposedBin {
+        toasty::create!(ExposedArtifact {
             name: bin.link.clone(),
+            kind: ExposedArtifactKind::Binary,
             location: package_installation_path
                 .join("bin")
                 .join(&bin.path)
@@ -495,8 +552,9 @@ async fn update_state_database(
     }
 
     for lib in &manifest.exposes.lib {
-        toasty::create!(ExposedLib {
+        toasty::create!(ExposedArtifact {
             name: lib.link.clone(),
+            kind: ExposedArtifactKind::Library,
             location: package_installation_path
                 .join("lib")
                 .join(&lib.path)
@@ -509,6 +567,27 @@ async fn update_state_database(
         .exec(transaction)
         .await
         .context("Could not insert exposed lib into state database.")?;
+    }
+
+    for var in &manifest.exposes.env {
+        toasty::create!(ExposedArtifact {
+            name: var.name.clone(),
+            kind: ExposedArtifactKind::Variable,
+            location: ctx
+                .root
+                .join("env")
+                .join(&var.name)
+                .join(&manifest.package.name)
+                .join(&manifest.package.version.to_string())
+                .display()
+                .to_string(),
+            package_name: manifest.package.name.clone(),
+            created_at: Zoned::now(),
+            updated_at: Zoned::now(),
+        })
+        .exec(transaction)
+        .await
+        .context("Could not insert exposed environment variable into state database.")?;
     }
 
     Ok(())
