@@ -1,0 +1,16 @@
+# Example manifest that exposes environment variables for other packages to consume.
+
+[package]
+name = "expose-1"
+version = "0.0.0"
+
+[targets.linux-x86_64]
+source = "src/linux-x86_64"
+
+[[exposes.env]]
+name = "EXPOSED_PATH"
+value = "$NYE_INSTALLATION/bin"
+
+[[exposes.env]]
+name = "EXPOSED_PATH"
+value = "$NYE_INSTALLATION/lib"

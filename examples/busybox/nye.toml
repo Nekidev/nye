@@ -416,5 +416,9 @@ links = [
 ]
 
 [[exposes.env]]
-name = "PYTHONPATH"
+name = "EXPOSED_PATH"
 value = "$NYE_INSTALLATION/lib"
+
+[[consumes.env]]
+name = "EXPOSED_PATH"
+separator = ":"

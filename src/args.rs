@@ -1,3 +1,5 @@
+#[cfg(feature = "registry")]
+use std::net::SocketAddr;
 use std::path::PathBuf;
 
 use clap::ArgAction;
@@ -50,6 +52,11 @@ pub enum Subcommand {
     /// Lists all installed packages.
     #[command(visible_alias = "l")]
     List(ListSubcommandArgs),
+
+    /// Registry HTTP server commands.
+    #[cfg(feature = "registry")]
+    #[command(visible_alias = "r")]
+    Registry(RegistrySubcommandArgs),
 
     /// Toasty development migration commands.
     #[cfg(debug_assertions)]
@@ -162,6 +169,76 @@ pub struct ListSubcommandLibsSubcommandArgs {
     /// Display instructions on how to use nye list libs.
     #[arg(short, long, action = ArgAction::Help)]
     pub help: Option<bool>,
+}
+
+#[cfg(feature = "registry")]
+#[derive(clap::Parser)]
+pub struct RegistrySubcommandArgs {
+    /// Display instructions on how to use nye registry.
+    #[arg(short, long, action = ArgAction::Help)]
+    pub help: Option<bool>,
+
+    #[command(subcommand)]
+    pub subcommand: RegistrySubcommandSubcommand,
+}
+
+#[cfg(feature = "registry")]
+#[derive(clap::Subcommand)]
+pub enum RegistrySubcommandSubcommand {
+    /// Run an HTTP registry server.
+    #[clap(visible_alias = "r")]
+    Run(RegistrySubcommandRunSubcommandArgs),
+}
+
+#[cfg(feature = "registry")]
+#[derive(clap::Parser)]
+pub struct RegistrySubcommandRunSubcommandArgs {
+    /// The address to listen for incoming connections at.
+    #[arg(env = "NYE_REGISTRY_BIND", default_value = "127.0.0.1:3000")]
+    pub bind: SocketAddr,
+
+    #[clap(flatten)]
+    pub duckity: Option<RegistrySubcommandRunSubcommandArgsDuckity>,
+
+    /// Display instructions on how to use nye registry run.
+    #[arg(short, long, action = ArgAction::Help)]
+    pub help: Option<bool>,
+}
+
+#[cfg(feature = "registry")]
+#[derive(clap::Args)]
+#[group(
+    requires = "application_secret",
+    requires = "signin_protection_profile_id",
+    requires = "signup_protection_profile_id"
+)]
+pub struct RegistrySubcommandRunSubcommandArgsDuckity {
+    /// The Duckity application secret to use to protect sign in and sign up endpoints.
+    #[arg(
+        required = false,
+        short,
+        long = "duckity-application-secret",
+        env = "NYE_REGISTRY_DUCKITY_APPLICATION_SECRET"
+    )]
+    pub application_secret: String,
+
+    /// The Duckity protection profile ID to use in the sign in endpoint.
+    #[arg(
+        required = false,
+        short = 'i',
+        long = "duckity-singin-protection-profile-id",
+        env = "NYE_REGISTRY_DUCKITY_SIGNIN_PROTECTION_PROFILE_ID"
+    )]
+    pub signin_protection_profile_id: String,
+
+    /// The Duckity protection profile ID to use in the sign up endpoint.
+    #[arg(
+        required = false,
+        short = 'u',
+        long = "duckity-singup-protection-profile-id",
+        env = "NYE_REGISTRY_DUCKITY_SIGNUP_PROTECTION_PROFILE_ID"
+    )]
+    pub signup_protection_profile_id: String,
 }
 
 #[cfg(debug_assertions)]

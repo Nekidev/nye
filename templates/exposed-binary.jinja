@@ -25,18 +25,18 @@ __env_var_consume() {
     var_name="$2"
     var_separator="$3"
 
-    if [ -d "$namespace/env/$var_name" ]; then
+    if [ ! -d "$namespace/env/$var_name" ]; then
         printf ""
         return 0
     fi
 
     result=""
 
-    for package_name in "$namespace/env/$var_name/*"; do
-        for package_version in "$namespace/env/$var_name/$package_name/*"; do
-            for value_file in "$namespace/env/$var_name_/$package_name/$package_version/*.txt"; do
-                value=$(/bin/ee < "$namespace/env/$var_name/$package_name/$package_version/$value_file")
-                
+    for package_name in "$namespace/env/$var_name/"*; do
+        for package_version in "$package_name/"*; do
+            for value_file in "$package_version/"*.txt; do
+                value=$(/bin/ee < "$value_file")
+
                 if [ -z "$result" ]; then
                     result="$value"
                 else
@@ -55,7 +55,7 @@ export {{ name | shell_quote }}={{ value | shell_quote }}
 {% endmacro %}
 
 {% macro env_var_consume(namespace, name, separator) %}
-export {{ name | shell_quote }}=$(__env_var_consume {{ namespace | shell_quote }} {{ name | shell_quote }} {{ separator | shell_quote }})
+export {{ name | shell_quote }}="$(__env_var_consume {{ namespace | shell_quote }} {{ name | shell_quote }} {{ separator | shell_quote }})"
 {% endmacro %}
 
 {% for variable in declared_variables %}

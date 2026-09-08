@@ -207,7 +207,7 @@ impl Validate for ManifestExposes {
 
 impl ManifestExposes {
     fn is_empty(&self) -> bool {
-        self.bin.is_empty() && self.lib.is_empty()
+        self.bin.is_empty() && self.lib.is_empty() && self.env.is_empty()
     }
 }
 
@@ -239,7 +239,7 @@ impl Validate for ManifestExposesArtifact {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ManifestExposesEnv {
     pub name: String,
     pub value: String,

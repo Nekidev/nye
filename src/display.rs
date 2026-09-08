@@ -49,7 +49,7 @@ where
 
     for (i, item) in items.iter().enumerate() {
         let is_first = i == 0;
-        let is_penultimate = i == items.len() - 2;
+        let is_penultimate = items.len() >= 2 && i == items.len() - 2;
         let is_last = i == items.len() - 1;
 
         match (is_first, is_penultimate, is_last) {

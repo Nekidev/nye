@@ -250,7 +250,7 @@ impl Validate for ManifestExposesArtifact {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ManifestExposesEnv {
     pub name: String,
     pub value: String,
@@ -297,7 +297,7 @@ impl Validate for ManifestExposesEnv {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ManifestConsumes {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub env: Vec<ManifestConsumesEnv>,
@@ -328,7 +328,8 @@ impl Validate for ManifestConsumes {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
 pub enum ManifestConsumesEnv {
     Value {
         name: String,

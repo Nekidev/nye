@@ -4,6 +4,7 @@ pub mod display;
 pub mod installations;
 pub mod packages;
 pub mod projects;
+pub mod registries;
 pub mod semver;
 pub mod targets;
 pub mod validation;

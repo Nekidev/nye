@@ -10,9 +10,12 @@ default-run = "nye"
 anyhow = { version = "1.0.104", features = ["backtrace"] }
 askama = "0.16.1"
 async_zip = { version = "0.0.19", features = ["tokio", "tokio-fs"] }
+axum = { version = "0.8.9", optional = true, features = ["http2", "multipart"] }
 clap = { version = "4.6.6", features = ["derive", "env", "wrap_help"] }
 colored = "3.1.1"
 dedent = "0.1.1"
+dotenvy = "0.15.7"
+duckity = "1.1.1"
 globwalk = "0.9.1"
 indicatif = { version = "0.18.6", features = ["tokio"] }
 jiff = { version = "0.2.35", features = ["static-tz"] }
@@ -21,11 +24,24 @@ path-clean = "1.0.1"
 pathdiff = "0.2.3"
 regex = "1.13.1"
 serde = { version = "1.0.229", features = ["derive"] }
+serde_json = { version = "1.0.151", optional = true, features = ["preserve_order"] }
 shellexpand = "3.1.2"
 tabled = "0.22.0"
 toasty = { version = "0.10.0", features = ["sqlite", "jiff", "migration"] }
 toasty-cli = "0.10.0"
-tokio = { version = "1.53.1", features = ["fs", "io-std", "io-util", "macros", "rt", "rt-multi-thread"] }
+tokio = { version = "1.53.1", features = [
+    "fs",
+    "io-std",
+    "io-util",
+    "macros",
+    "rt",
+    "rt-multi-thread",
+] }
 tokio-util = { version = "0.7.19", features = ["futures-io", "io", "io-util"] }
 toml = { version = "1.1.4", features = ["preserve_order", "serde"] }
+url = { version = "2.5.8", features = ["serde"] }
 users = "0.11.0"
+
+[features]
+default = ["registry"]
+registry = ["dep:axum", "dep:serde_json", "toasty/postgresql", "tokio/signal"]
