@@ -28,6 +28,9 @@ pub async fn handle(
     client: ConnectInfo<SocketAddr>,
     Json(payload): Json<SignupRequestPayload>,
 ) -> Result<Json<SignupResponsePayload>, Error> {
+    // TODO: Migrate this check and /v1/signin's to a duckity.rs module, alternate between
+    //       protection profiles in config with an enum to keep it DRY.
+
     if let Some(config) = &*state.duckity {
         let Some(solution) = payload.duckity else {
             return Err(Error::new_422(

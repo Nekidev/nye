@@ -1,0 +1,9 @@
+{
+  "features": {
+    "ghcr.io/nlstn/devcontainer-features/psql": {
+      "version": "1.0.0",
+      "resolved": "ghcr.io/nlstn/devcontainer-features/psql@sha256:2260e43f5a282ba5ad54c6c4148baeedcc923ecb0936cd09c8f5de2bf3b8806c",
+      "integrity": "sha256:2260e43f5a282ba5ad54c6c4148baeedcc923ecb0936cd09c8f5de2bf3b8806c"
+    }
+  }
+}
