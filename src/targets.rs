@@ -5,9 +5,10 @@ use std::str::FromStr;
 use anyhow::Context;
 use serde::de::Visitor;
 use serde::{Deserialize, Serialize};
+use toasty::Embed;
 
 /// Rust's supported operating systems.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Embed)]
 pub enum Os {
     Linux,
     Windows,
@@ -96,7 +97,7 @@ impl Display for Os {
 }
 
 /// Rust's supported CPU architectures.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Embed)]
 pub enum Arch {
     X86,
     X86_64,
@@ -157,27 +158,31 @@ impl Display for Arch {
 }
 
 /// A system target.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Target(pub Os, pub Arch);
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Embed)]
+pub struct Target {
+    pub os: Os,
+    pub arch: Arch,
+}
 
 impl Target {
     /// Returns the current system's target, if a valid one.
     pub fn get_current() -> anyhow::Result<Target> {
-        Ok(Target(
-            Os::from_str(OS).context("Could not get current system's OS.")?,
-            Arch::from_str(ARCH).context("Could not get curent system's CPU architecture.")?,
-        ))
+        Ok(Target {
+            os: Os::from_str(OS).context("Could not get current system's OS.")?,
+            arch: Arch::from_str(ARCH)
+                .context("Could not get curent system's CPU architecture.")?,
+        })
     }
 
     /// Returns whether nye supports this target.
     pub fn is_supported(&self) -> bool {
-        self.0 == Os::Linux
+        self.os == Os::Linux
     }
 }
 
 impl Display for Target {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}-{}", self.0, self.1)
+        write!(f, "{}-{}", self.os, self.arch)
     }
 }
 
@@ -193,7 +198,7 @@ impl FromStr for Target {
         let arch =
             Arch::from_str(arch).context("The CPU architecture of the target was invalid.")?;
 
-        Ok(Target(os, arch))
+        Ok(Target { os, arch })
     }
 }
 

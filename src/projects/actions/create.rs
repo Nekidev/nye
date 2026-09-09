@@ -5,7 +5,9 @@ use anyhow::Context;
 use tokio::fs;
 
 use crate::projects::ManifestExposes;
-use crate::projects::manifest::{Manifest, ManifestConsumes, ManifestPackage, ManifestTarget, TargetOrShared};
+use crate::projects::manifest::{
+    Manifest, ManifestConsumes, ManifestPackage, ManifestTarget, TargetOrShared,
+};
 use crate::semver::Semver;
 use crate::targets::Target;
 

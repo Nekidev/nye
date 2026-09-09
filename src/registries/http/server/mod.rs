@@ -5,15 +5,21 @@ use axum::{Router, routing};
 use tokio::net::TcpListener;
 use tokio::signal;
 
+use crate::registries::http::server::state::RegistryState;
+
 pub mod database;
+pub mod state;
+pub mod tasks;
 pub mod v1;
 
-pub async fn start(bind: SocketAddr) -> anyhow::Result<()> {
+pub async fn start(bind: SocketAddr, state: RegistryState) -> anyhow::Result<()> {
     let listener = TcpListener::bind(bind)
         .await
         .context("Could not start listening for incoming registry server connections.")?;
 
-    let router = router();
+    let task_token_cleanup = tokio::spawn(tasks::token_cleanup::run(state.clone()));
+    
+    let router = router().with_state(state);
 
     axum::serve(
         listener,
@@ -27,10 +33,12 @@ pub async fn start(bind: SocketAddr) -> anyhow::Result<()> {
     .await
     .context("Failed to serve requests for registry server.")?;
 
+    task_token_cleanup.abort();
+
     Ok(())
 }
 
-fn router() -> Router<()> {
+fn router() -> Router<RegistryState> {
     Router::new()
         .route("/v1/signin", routing::post(v1::routes::signin::handle))
         .route("/v1/signup", routing::post(v1::routes::signup::handle))

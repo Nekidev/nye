@@ -1,20 +1,104 @@
+use std::net::SocketAddr;
+
 use axum::Json;
+use axum::extract::ConnectInfo;
+use jiff::Zoned;
 use serde::{Deserialize, Serialize};
 
-use crate::registries::http::server::v1::errors::Error;
+use crate::registries::http::server::database::User;
+use crate::registries::http::server::state::State;
+use crate::registries::http::server::v1::errors::{Error, OrHttpError};
+use crate::registries::http::server::v1::schemas::{Email, Password, Username};
 
 #[derive(Serialize, Deserialize)]
 pub struct SignupRequestPayload {
-    pub username: String,
-    pub email: String,
-    pub password: String,
+    pub name: Username,
+    pub email: Email,
+    pub password: Password,
+
+    #[serde(default)]
+    pub duckity: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct SignupResponsePayload {}
 
 pub async fn handle(
+    state: State,
+    client: ConnectInfo<SocketAddr>,
     Json(payload): Json<SignupRequestPayload>,
 ) -> Result<Json<SignupResponsePayload>, Error> {
-    todo!()
+    if let Some(config) = &*state.duckity {
+        let Some(solution) = payload.duckity else {
+            return Err(Error::new_422(
+                "Missing Duckity Solution",
+                "This registry requires Duckity solution tokens to be sent when signing up.",
+            ));
+        };
+
+        let is_valid = duckity::validate(
+            solution,
+            client.ip(),
+            &config.application_secret,
+            &config.signup_protection_profile_id,
+        )
+        .await
+        .or_http_500()?;
+
+        if !is_valid {
+            return Err(Error::new_422(
+                "Invalid Duckity Solution",
+                "The Duckity solution token provided was invalid.",
+            ));
+        }
+    }
+
+    let mut db = state.db.connection().await.or_http_500()?;
+    let mut db = db.transaction().await.or_http_500()?;
+
+    if payload.name.as_str() == "a_different_one" {
+        return Err(Error::new_418("a_different_one", "Good boy."));
+    }
+
+    let is_name_conflicting = !User::filter_by_name(&payload.name)
+        .exec(&mut db)
+        .await
+        .or_http_500()?
+        .is_empty();
+    let is_email_conflicting = !User::filter_by_email(&*payload.email)
+        .exec(&mut db)
+        .await
+        .or_http_500()?
+        .is_empty();
+
+    if is_name_conflicting {
+        return Err(Error::new_409(
+            "Username in Use",
+            "The username you tried to sign up with is already in use. Pick a_different_one.",
+        ));
+    }
+    if is_email_conflicting {
+        return Err(Error::new_409(
+            "Email in Use",
+            "The email you tried to sign up with is already in use. Try recovering your password instead.",
+        ));
+    }
+
+    toasty::create!(User {
+        id: nanoid::nanoid!(),
+        name: payload.name,
+        email: payload.email,
+        password: payload.password.hash().await,
+        created_at: Zoned::now(),
+        updated_at: Zoned::now()
+    })
+    .exec(&mut db)
+    .await
+    .or_http_500()?;
+
+    db.commit().await.or_http_500()?;
+
+    // TODO: Email verification code, password-less sign up.
+
+    Ok(SignupResponsePayload {}.into())
 }

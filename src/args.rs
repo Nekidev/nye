@@ -3,6 +3,8 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 
 use clap::ArgAction;
+#[cfg(debug_assertions)]
+use url::Url;
 
 use crate::targets::Target;
 
@@ -188,6 +190,11 @@ pub enum RegistrySubcommandSubcommand {
     /// Run an HTTP registry server.
     #[clap(visible_alias = "r")]
     Run(RegistrySubcommandRunSubcommandArgs),
+
+    /// Toasty development migration commands.
+    #[cfg(debug_assertions)]
+    #[command(visible_alias = "t")]
+    Toasty(RegistrySubcommandToastySubcommandArgs),
 }
 
 #[cfg(feature = "registry")]
@@ -200,13 +207,17 @@ pub struct RegistrySubcommandRunSubcommandArgs {
     #[clap(flatten)]
     pub duckity: Option<RegistrySubcommandRunSubcommandArgsDuckity>,
 
+    /// The PostgreSQL database URL to run on.
+    #[arg(short, long, default_value = "postgres://postgres:postgres@localhost:5432/postgres")]
+    pub database_url: Url,
+
     /// Display instructions on how to use nye registry run.
     #[arg(short, long, action = ArgAction::Help)]
     pub help: Option<bool>,
 }
 
 #[cfg(feature = "registry")]
-#[derive(clap::Args)]
+#[derive(clap::Args, Clone)]
 #[group(
     requires = "application_secret",
     requires = "signin_protection_profile_id",
@@ -243,7 +254,34 @@ pub struct RegistrySubcommandRunSubcommandArgsDuckity {
 
 #[cfg(debug_assertions)]
 #[derive(clap::Parser)]
+pub struct RegistrySubcommandToastySubcommandArgs {
+    /// The arguments to pass to the toasty command.
+    pub args: Vec<String>,
+
+    /// The PostgreSQL database URL to use to generate migrations.
+    #[arg(
+        short,
+        long,
+        default_value = "postgres://postgres:postgres@localhost:5432/postgres"
+    )]
+    pub database_url: Url,
+
+    /// Display instructions on how to use nye registry toasty.
+    #[arg(short, long, action = ArgAction::Help)]
+    pub help: Option<bool>,
+}
+
+#[cfg(debug_assertions)]
+#[derive(clap::Parser)]
 pub struct ToastySubcommandArgs {
     /// The arguments to pass to the toasty command.
     pub args: Vec<String>,
+
+    /// The SQLite database URL to use to generate migrations.
+    #[arg(short, long, default_value = "sqlite://state.db")]
+    pub database_url: Url,
+
+    /// Display instructions on how to use nye toasty.
+    #[arg(short, long, action = ArgAction::Help)]
+    pub help: Option<bool>,
 }

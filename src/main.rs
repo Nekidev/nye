@@ -93,6 +93,9 @@ async fn main_inner() -> anyhow::Result<()> {
                 RegistrySubcommandSubcommand::Run(cmd) => {
                     nye::commands::registry_run::run(&args, cmd).await?
                 }
+                RegistrySubcommandSubcommand::Toasty(cmd) => {
+                    nye::commands::registry_toasty::run(&args, cmd).await?
+                }
             },
         }
     } else {

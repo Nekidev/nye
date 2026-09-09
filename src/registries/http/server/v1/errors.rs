@@ -24,6 +24,38 @@ impl Error {
         }
     }
 
+    pub fn new_401(title: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::UNAUTHORIZED,
+            title: title.into(),
+            message: message.into(),
+        }
+    }
+
+    pub fn new_409(title: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::CONFLICT,
+            title: title.into(),
+            message: message.into(),
+        }
+    }
+
+    pub fn new_418(title: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::IM_A_TEAPOT,
+            title: title.into(),
+            message: message.into(),
+        }
+    }
+
+    pub fn new_422(title: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::UNPROCESSABLE_ENTITY,
+            title: title.into(),
+            message: message.into(),
+        }
+    }
+
     pub fn http_429() -> Self {
         Self {
             status: StatusCode::TOO_MANY_REQUESTS,
@@ -52,5 +84,18 @@ impl IntoResponse for Error {
             }),
         )
             .into_response()
+    }
+}
+
+pub trait OrHttpError<T> {
+    fn or_http_500(self) -> Result<T, Error>;
+}
+
+impl<T, E> OrHttpError<T> for Result<T, E> {
+    fn or_http_500(self) -> Result<T, Error> {
+        match self {
+            Ok(v) => Ok(v),
+            Err(_) => Err(Error::http_500()),
+        }
     }
 }

@@ -8,6 +8,7 @@ default-run = "nye"
 
 [dependencies]
 anyhow = { version = "1.0.104", features = ["backtrace"] }
+argon2 = "0.6.0"
 askama = "0.16.1"
 async_zip = { version = "0.0.19", features = ["tokio", "tokio-fs"] }
 axum = { version = "0.8.9", optional = true, features = ["http2", "multipart"] }
@@ -29,6 +30,7 @@ shellexpand = "3.1.2"
 tabled = "0.22.0"
 toasty = { version = "0.10.0", features = ["sqlite", "jiff", "migration"] }
 toasty-cli = "0.10.0"
+toasty-core = "0.10.0"
 tokio = { version = "1.53.1", features = [
     "fs",
     "io-std",
@@ -41,7 +43,9 @@ tokio-util = { version = "0.7.19", features = ["futures-io", "io", "io-util"] }
 toml = { version = "1.1.4", features = ["preserve_order", "serde"] }
 url = { version = "2.5.8", features = ["serde"] }
 users = "0.11.0"
+validator = "0.21.0"
+zxcvbn = { version = "3.1.1" }
 
 [features]
 default = ["registry"]
-registry = ["dep:axum", "dep:serde_json", "toasty/postgresql", "tokio/signal"]
+registry = ["dep:axum", "dep:serde_json", "toasty/postgresql", "tokio/signal", "tokio/time"]
