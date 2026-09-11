@@ -54,3 +54,12 @@ zxcvbn = { version = "3.1.1" }
 [features]
 default = ["registry"]
 registry = ["dep:axum", "dep:serde_json", "toasty/postgresql", "tokio/signal", "tokio/time"]
+
+[profile.release]
+opt-level = 3
+strip = true
+lto = true
+codegen-units = 1
+debug = false
+overflow-checks = false
+incremental = false

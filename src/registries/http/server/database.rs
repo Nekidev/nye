@@ -52,6 +52,7 @@ pub struct Token {
 
     #[belongs_to]
     pub user: Deferred<User>,
+    #[index]
     pub user_id: String,
 
     pub created_at: u64,
