@@ -14,9 +14,10 @@ use crate::targets::Target;
 /// Creates a new package project at the specified directory.
 ///
 /// Arguments:
-/// * `path` - The path where the project will be created. All parent directories required to
-///   create the project will be created.
-/// * `name` - The name to give to the project. Defaults to the path's directory name.
+/// * `path` - The path where the project will be created. All parent
+///   directories required to create the project will be created.
+/// * `name` - The name to give to the project. Defaults to the path's directory
+///   name.
 ///
 /// Returns:
 /// * [`Manifest`] - The project's manifest on success.

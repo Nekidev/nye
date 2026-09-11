@@ -27,11 +27,7 @@ pub async fn run(args: &Args, cmd: &UninstallSubcommandArgs) -> anyhow::Result<(
 
     println!("Done! The following packages were uninstalled:");
     for (index, package_name) in cmd.packages.iter().enumerate() {
-        println!(
-            "{} {}",
-            format!("{}.", index + 1).dimmed(),
-            package_name.blue(),
-        );
+        println!("{} {}", format!("{}.", index + 1).dimmed(), package_name.blue(),);
     }
 
     Ok(())

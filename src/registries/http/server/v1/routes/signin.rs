@@ -1,15 +1,15 @@
 use std::net::SocketAddr;
-use std::time::Duration;
 
 use axum::Json;
 use axum::extract::ConnectInfo;
-use jiff::Zoned;
 use serde::{Deserialize, Serialize};
 
 use crate::registries::http::server::database::{Token, TokenKind, User};
 use crate::registries::http::server::state::State;
-use crate::registries::http::server::v1::errors::{Error, OrHttpError};
+use crate::registries::http::server::v1::duckity::{self, Endpoint};
+use crate::registries::http::server::v1::errors::{Error, ResultOrHttpError};
 use crate::registries::http::server::v1::schemas::{Login, Password};
+use crate::time;
 
 #[derive(Serialize, Deserialize)]
 pub struct SigninRequestPayload {
@@ -33,33 +33,7 @@ pub async fn handle(
     client: ConnectInfo<SocketAddr>,
     Json(payload): Json<SigninRequestPayload>,
 ) -> Result<Json<SigninResponsePayload>, Error> {
-    // TODO: Migrate this check and /v1/signup's to a duckity.rs module, alternate between
-    //       protection profiles in config with an enum to keep it DRY.
-
-    if let Some(config) = &*state.duckity {
-        let Some(solution) = payload.duckity else {
-            return Err(Error::new_422(
-                "Missing Duckity Solution",
-                "This registry requires Duckity solution tokens to be sent when signing in.",
-            ));
-        };
-
-        let is_valid = duckity::validate(
-            solution,
-            client.ip(),
-            &config.application_secret,
-            &config.signin_protection_profile_id,
-        )
-        .await
-        .or_http_500()?;
-
-        if !is_valid {
-            return Err(Error::new_422(
-                "Invalid Duckity Solution",
-                "The Duckity solution token provided was invalid.",
-            ));
-        }
-    }
+    duckity::protect(&state.duckity, client.ip(), &payload.duckity, Endpoint::SignIn).await?;
 
     let mut db = state.db.connection().await.or_http_500()?;
     let mut db = db.transaction().await.or_http_500()?;
@@ -78,9 +52,9 @@ pub async fn handle(
             id: nanoid::nanoid!(),
             kind: TokenKind::Access,
             user_id: &user.id,
-            created_at: Zoned::now(),
-            updated_at: Zoned::now(),
-            expires_at: Zoned::now() + Duration::from_hours(1),
+            created_at: time::utc_now_ms(),
+            updated_at: time::utc_now_ms(),
+            expires_at: time::utc_now_ms() + 60 * 60 * 1000,
         })
         .exec(&mut db)
         .await
@@ -89,9 +63,9 @@ pub async fn handle(
             id: nanoid::nanoid!(),
             kind: TokenKind::Refresh,
             user_id: &user.id,
-            created_at: Zoned::now(),
-            updated_at: Zoned::now(),
-            expires_at: Zoned::now() + Duration::from_hours(24) * 7,
+            created_at: time::utc_now_ms(),
+            updated_at: time::utc_now_ms(),
+            expires_at: time::utc_now_ms() + 7 * 24 * 60 * 60 * 1000,
         })
         .exec(&mut db)
         .await

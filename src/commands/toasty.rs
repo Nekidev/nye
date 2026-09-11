@@ -14,10 +14,7 @@ pub async fn run(_args: &Args, cmd: &ToastySubcommandArgs) -> anyhow::Result<()>
 
     let db = database::connect(cmd.database_url.to_string())
         .await
-        .context(format!(
-            "Could not connect to development database at `{}`.",
-            cmd.database_url
-        ))?;
+        .context(format!("Could not connect to development database at `{}`.", cmd.database_url))?;
 
     let cli = ToastyCli::with_config(db, config);
     cli.parse_from(args).await?;

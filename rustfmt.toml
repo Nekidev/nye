@@ -1,2 +1,4 @@
 group_imports = "StdExternalCrate"
 imports_granularity = "Module"
+wrap_comments = true
+fn_call_width = 100

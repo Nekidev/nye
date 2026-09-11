@@ -251,11 +251,7 @@ async fn check_package_version_collissions(
         ))?;
 
         if version == manifest.package.version {
-            anyhow::bail!(
-                "Package `{} v{}` is already installed.",
-                package.name,
-                package.version
-            );
+            anyhow::bail!("Package `{} v{}` is already installed.", package.name, package.version);
         }
     }
 

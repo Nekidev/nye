@@ -43,9 +43,9 @@ fn collect_artifacts(
 impl Manifest {
     /// Returns a package manifest from a project manifest.
     ///
-    /// This function does not validate the contents of the project manifest, it's on the caller to
-    /// ensure the manifest specified is valid. An invalid manifest input will produce an invalid
-    /// manifest output.
+    /// This function does not validate the contents of the project manifest,
+    /// it's on the caller to ensure the manifest specified is valid. An
+    /// invalid manifest input will produce an invalid manifest output.
     ///
     /// Arguments:
     /// * `manifest` - The project's manifest.
@@ -261,10 +261,7 @@ impl Validate for ManifestExposesEnv {
         }
 
         if self.value.len() > 512 {
-            anyhow::bail!(
-                "The package has an invalid variable exposed `{}`.",
-                self.name
-            );
+            anyhow::bail!("The package has an invalid variable exposed `{}`.", self.name);
         }
 
         Ok(())

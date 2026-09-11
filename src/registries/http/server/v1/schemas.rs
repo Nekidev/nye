@@ -3,6 +3,8 @@ use std::ops::Deref;
 use std::str::FromStr;
 
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier, password_hash};
+use axum::Json;
+use axum::response::IntoResponse;
 use serde::de::Visitor;
 use serde::{Deserialize, Serialize};
 use toasty::stmt::{Expr, IntoExpr};
@@ -10,11 +12,42 @@ use validator::ValidateEmail;
 
 /// The JSON-serialized part of an error response.
 ///
-/// Do not return this struct directly from handlers. Use [`Error`](super::errors::Error) instead.
+/// Do not return this struct directly from handlers. Use
+/// [`Error`](super::errors::Error) instead.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ErrorSchema {
     pub title: String,
     pub message: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Page<T> {
+    items: Vec<T>,
+    meta: PageMeta,
+}
+
+impl<T> Page<T> {
+    pub fn new(items: impl IntoIterator<Item = T>, total: u64, cursor: u64) -> Self {
+        Self {
+            items: items.into_iter().collect(),
+            meta: PageMeta { total, cursor },
+        }
+    }
+}
+
+impl<T> IntoResponse for Page<T>
+where
+    T: Serialize,
+{
+    fn into_response(self) -> axum::response::Response {
+        Json(self).into_response()
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct PageMeta {
+    total: u64,
+    cursor: u64,
 }
 
 /// A validated username.
@@ -293,20 +326,23 @@ impl Password {
         .expect("Panicked while hashing password.")
     }
 
-    /// Compares the current password with a hashed password string and returns whether they match.
+    /// Compares the current password with a hashed password string and returns
+    /// whether they match.
     ///
     /// Arguments:
-    /// * `hash` - The hash string, e.g. `$argon2id$v=19$...`. The value returned by
-    ///   [`Password::hash()`].
+    /// * `hash` - The hash string, e.g. `$argon2id$v=19$...`. The value
+    ///   returned by [`Password::hash()`].
     ///
     /// Returns:
-    /// [`bool`] - Whether the password is the same as the one in the provided hash.
+    /// [`bool`] - Whether the password is the same as the one in the provided
+    /// hash.
     pub async fn verify(&self, hash: impl Into<String>) -> bool {
         let hash = PasswordHash::new(&hash.into()).unwrap();
         let password = self.0.clone();
 
         let result = tokio::task::spawn_blocking(move || {
-            // May fail if algorithms are unsupported. Since it's all internal, that will never happen.
+            // May fail if algorithms are unsupported. Since it's all internal,
+            // that will never happen.
             Argon2::default().verify_password(password.as_bytes(), &hash)
         })
         .await

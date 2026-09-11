@@ -26,7 +26,5 @@ pub async fn list_artifacts(
         .filter_by_kind(kind)
         .exec(&mut db)
         .await
-        .context(format!(
-            "Could not list all exposed artifacts of kind {kind:?}."
-        ))
+        .context(format!("Could not list all exposed artifacts of kind {kind:?}."))
 }

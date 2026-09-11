@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use axum::Json;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
@@ -56,6 +58,32 @@ impl Error {
         }
     }
 
+    pub fn http_400() -> Self {
+        Self {
+            status: StatusCode::BAD_REQUEST,
+            title: "Bad Request".into(),
+            message: "The request you sent was invalid.".into(),
+        }
+    }
+
+    pub fn http_401() -> Self {
+        Self {
+            status: StatusCode::UNAUTHORIZED,
+            title: "Unauthorized".into(),
+            message: "This action requires authorization. Did you send an Authorization header? Was it valid? Did the token expire? Right token type?".into(),
+        }
+    }
+
+    pub fn http_422() -> Self {
+        Self {
+            status: StatusCode::UNPROCESSABLE_ENTITY,
+            title: "Invalid Request".into(),
+            message:
+                "The request you made was not valid. Review the documentation before retrying."
+                    .into(),
+        }
+    }
+
     pub fn http_429() -> Self {
         Self {
             status: StatusCode::TOO_MANY_REQUESTS,
@@ -87,11 +115,84 @@ impl IntoResponse for Error {
     }
 }
 
-pub trait OrHttpError<T> {
+pub trait OptionOrHttpError<T> {
+    /// Replaces [`None`] with a generic 400 [`Error`].
+    fn or_http_400(self) -> Result<T, Error>;
+    /// Replaces [`None`] with a generic 401 [`Error`].
+    fn or_http_401(self) -> Result<T, Error>;
+    /// Replaces [`None`] with a generic 422 [`Error`].
+    fn or_http_422(self) -> Result<T, Error>;
+    /// Replaces [`None`] with a generic 500 [`Error`].
     fn or_http_500(self) -> Result<T, Error>;
 }
 
-impl<T, E> OrHttpError<T> for Result<T, E> {
+impl<T> OptionOrHttpError<T> for Option<T> {
+    fn or_http_400(self) -> Result<T, Error> {
+        match self {
+            Some(t) => Ok(t),
+            None => Err(Error::http_400()),
+        }
+    }
+
+    fn or_http_401(self) -> Result<T, Error> {
+        match self {
+            Some(t) => Ok(t),
+            None => Err(Error::http_401()),
+        }
+    }
+
+    fn or_http_422(self) -> Result<T, Error> {
+        match self {
+            Some(t) => Ok(t),
+            None => Err(Error::http_422()),
+        }
+    }
+
+    fn or_http_500(self) -> Result<T, Error> {
+        match self {
+            Some(t) => Ok(t),
+            None => Err(Error::http_500()),
+        }
+    }
+}
+
+pub trait ResultOrHttpError<T> {
+    /// Converts the error of the result to an [`Error`] using the error as the
+    /// returned error's message.
+    fn or_into_422(self) -> Result<T, Error>;
+    /// Replaces the error of the result with a generic 400 [`Error`].
+    fn or_http_400(self) -> Result<T, Error>;
+    /// Replaces the error of the result with a generic 422 [`Error`].
+    fn or_http_422(self) -> Result<T, Error>;
+    /// Replaces the error of the result with a generic 500 [`Error`].
+    fn or_http_500(self) -> Result<T, Error>;
+}
+
+impl<T, E> ResultOrHttpError<T> for Result<T, E>
+where
+    E: Display,
+{
+    fn or_into_422(self) -> Result<T, Error> {
+        match self {
+            Ok(v) => Ok(v),
+            Err(e) => Err(Error::new_422("Invalid Request", e.to_string())),
+        }
+    }
+
+    fn or_http_400(self) -> Result<T, Error> {
+        match self {
+            Ok(v) => Ok(v),
+            Err(_) => Err(Error::http_400()),
+        }
+    }
+
+    fn or_http_422(self) -> Result<T, Error> {
+        match self {
+            Ok(v) => Ok(v),
+            Err(_) => Err(Error::http_422()),
+        }
+    }
+
     fn or_http_500(self) -> Result<T, Error> {
         match self {
             Ok(v) => Ok(v),

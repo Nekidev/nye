@@ -38,10 +38,7 @@ async fn main_inner() -> anyhow::Result<()> {
     let args = Args::from_arg_matches(&matches).context("Could not parse CLI arguments.")?;
 
     if args.target {
-        println!(
-            "Your current system's target is {}.",
-            current_target.to_string().blue()
-        );
+        println!("Your current system's target is {}.", current_target.to_string().blue());
 
         if !current_target.is_supported() {
             println!();
@@ -93,6 +90,7 @@ async fn main_inner() -> anyhow::Result<()> {
                 RegistrySubcommandSubcommand::Run(cmd) => {
                     nye::commands::registry_run::run(&args, cmd).await?
                 }
+                #[cfg(debug_assertions)]
                 RegistrySubcommandSubcommand::Toasty(cmd) => {
                     nye::commands::registry_toasty::run(&args, cmd).await?
                 }

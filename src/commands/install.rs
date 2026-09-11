@@ -15,10 +15,7 @@ pub async fn run(args: &Args, cmd: &InstallSubcommandArgs) -> anyhow::Result<()>
 
     let bar = display::spinner("Installing packages...");
     for path in &cmd.path {
-        bar.set_message(format!(
-            "Installing package in {}...",
-            path.display().to_string().blue()
-        ));
+        bar.set_message(format!("Installing package in {}...", path.display().to_string().blue()));
 
         let manifest = installations::actions::install::install(ctx.clone(), path.clone())
             .await

@@ -7,4 +7,5 @@ pub mod projects;
 pub mod registries;
 pub mod semver;
 pub mod targets;
+pub mod time;
 pub mod validation;

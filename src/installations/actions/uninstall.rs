@@ -94,10 +94,9 @@ async fn uninstall_bin(ctx: &Context, artifact: &ExposedArtifact) -> anyhow::Res
         .await
         .context("Could not check if link to exposed binary existed.")?
     {
-        fs::remove_file(&path).await.context(format!(
-            "Could not delete binary link at `{}`.",
-            path.display()
-        ))?;
+        fs::remove_file(&path)
+            .await
+            .context(format!("Could not delete binary link at `{}`.", path.display()))?;
     }
 
     Ok(())
@@ -110,10 +109,9 @@ async fn uninstall_lib(ctx: &Context, artifact: &ExposedArtifact) -> anyhow::Res
         .await
         .context("Could not check if link to exposed library existed.")?
     {
-        fs::remove_file(&path).await.context(format!(
-            "Could not delete library link at `{}`.",
-            path.display()
-        ))?;
+        fs::remove_file(&path)
+            .await
+            .context(format!("Could not delete library link at `{}`.", path.display()))?;
     }
 
     Ok(())

@@ -9,10 +9,7 @@ use crate::registries::http::server::database;
 use crate::registries::http::server::state::{DuckityState, RegistryState};
 
 pub async fn run(_args: &Args, cmd: &RegistrySubcommandRunSubcommandArgs) -> anyhow::Result<()> {
-    println!(
-        "Registry server is running at {}.",
-        format!("http://{}/", cmd.bind).blue()
-    );
+    println!("Registry server is running at {}.", format!("http://{}/", cmd.bind).blue());
 
     let database = database::connect(cmd.database_url.to_string())
         .await

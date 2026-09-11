@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 
 use clap::ArgAction;
-#[cfg(debug_assertions)]
+#[cfg(any(debug_assertions, feature = "registry"))]
 use url::Url;
 
 use crate::targets::Target;
@@ -93,7 +93,8 @@ pub struct DevSubcommandInitSubcommandArgs {
     #[arg(default_value = ".")]
     pub path: PathBuf,
 
-    /// The name to give the package project. Defaults to the path's directory name.
+    /// The name to give the package project. Defaults to the path's directory
+    /// name.
     #[arg(short, long)]
     pub name: Option<String>,
 
@@ -208,7 +209,11 @@ pub struct RegistrySubcommandRunSubcommandArgs {
     pub duckity: Option<RegistrySubcommandRunSubcommandArgsDuckity>,
 
     /// The PostgreSQL database URL to run on.
-    #[arg(short, long, default_value = "postgres://postgres:postgres@localhost:5432/postgres")]
+    #[arg(
+        short,
+        long,
+        default_value = "postgres://postgres:postgres@localhost:5432/postgres"
+    )]
     pub database_url: Url,
 
     /// Display instructions on how to use nye registry run.
@@ -224,7 +229,8 @@ pub struct RegistrySubcommandRunSubcommandArgs {
     requires = "signup_protection_profile_id"
 )]
 pub struct RegistrySubcommandRunSubcommandArgsDuckity {
-    /// The Duckity application secret to use to protect sign in and sign up endpoints.
+    /// The Duckity application secret to use to protect sign in and sign up
+    /// endpoints.
     #[arg(
         required = false,
         short,

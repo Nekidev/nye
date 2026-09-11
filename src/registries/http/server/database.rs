@@ -1,5 +1,4 @@
 use anyhow::Context;
-use jiff::Zoned;
 use toasty::{Db, Deferred};
 
 use crate::targets::Target;
@@ -11,12 +10,7 @@ pub async fn connect(url: impl Into<String>) -> anyhow::Result<Db> {
     let url = url.into();
 
     let db = toasty::Db::builder()
-        .models(toasty::models!(
-            User,
-            Package,
-            PackageVersion,
-            PackageVersionBundle
-        ))
+        .models(toasty::models!(User, Package, PackageVersion, PackageVersionBundle))
         .connect(&url)
         .await
         .context("Could not connect to the database.")?;
@@ -29,11 +23,11 @@ pub async fn connect(url: impl Into<String>) -> anyhow::Result<Db> {
     Ok(db)
 }
 
-#[derive(toasty::Model)]
+#[derive(toasty::Model, Clone)]
 pub struct User {
     #[key]
     pub id: String,
-    
+
     #[unique]
     pub name: String,
     #[unique]
@@ -45,11 +39,11 @@ pub struct User {
     #[has_many(pair = user)]
     pub packages: Deferred<Vec<Package>>,
 
-    pub created_at: Zoned,
-    pub updated_at: Zoned,
+    pub created_at: u64,
+    pub updated_at: u64,
 }
 
-#[derive(toasty::Model)]
+#[derive(toasty::Model, Clone)]
 pub struct Token {
     #[key]
     pub id: String,
@@ -57,12 +51,12 @@ pub struct Token {
     pub kind: TokenKind,
 
     #[belongs_to]
-    pub user: User,
+    pub user: Deferred<User>,
     pub user_id: String,
 
-    pub created_at: Zoned,
-    pub updated_at: Zoned,
-    pub expires_at: Zoned,
+    pub created_at: u64,
+    pub updated_at: u64,
+    pub expires_at: u64,
 }
 
 #[derive(toasty::Embed, Debug, Clone, Copy, PartialEq, Eq)]
@@ -71,7 +65,7 @@ pub enum TokenKind {
     Refresh,
 }
 
-#[derive(toasty::Model)]
+#[derive(toasty::Model, Clone)]
 pub struct Package {
     #[key]
     pub id: String,
@@ -86,11 +80,11 @@ pub struct Package {
     #[has_many(pair = package)]
     pub versions: Deferred<Vec<PackageVersion>>,
 
-    pub created_at: Zoned,
-    pub updated_at: Zoned,
+    pub created_at: u64,
+    pub updated_at: u64,
 }
 
-#[derive(toasty::Model)]
+#[derive(toasty::Model, Clone)]
 #[unique(package_id, number)]
 pub struct PackageVersion {
     #[key]
@@ -105,11 +99,11 @@ pub struct PackageVersion {
     #[has_many(pair = version)]
     pub bundles: Deferred<Vec<PackageVersionBundle>>,
 
-    pub created_at: Zoned,
-    pub updated_at: Zoned,
+    pub created_at: u64,
+    pub updated_at: u64,
 }
 
-#[derive(toasty::Model)]
+#[derive(toasty::Model, Clone)]
 pub struct PackageVersionBundle {
     #[key]
     pub id: String,
@@ -122,6 +116,6 @@ pub struct PackageVersionBundle {
     #[index]
     pub version_id: String,
 
-    pub created_at: Zoned,
-    pub updated_at: Zoned,
+    pub created_at: u64,
+    pub updated_at: u64,
 }

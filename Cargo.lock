@@ -2845,6 +2845,8 @@ dependencies = [
  "dedent",
  "dotenvy",
  "duckity",
+ "futures-core",
+ "futures-util",
  "globwalk",
  "indicatif",
  "jiff",

@@ -102,9 +102,8 @@ impl Validate for Manifest {
                 );
             }
 
-            v.validate().context(format!(
-                "The configured target `{k}` had an invalid configuration."
-            ))?;
+            v.validate()
+                .context(format!("The configured target `{k}` had an invalid configuration."))?;
         }
 
         self.exposes

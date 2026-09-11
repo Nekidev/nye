@@ -3,6 +3,7 @@
 use std::cmp::Ordering;
 use std::error::Error;
 use std::fmt::{Debug, Display};
+use std::marker::PhantomData;
 use std::str::FromStr;
 
 use anyhow::Context;
@@ -31,10 +32,11 @@ where
 {
     /// Checks whether this version is compatible with another version.
     ///
-    /// When two versions are compatible, no breaking changes occur between them.
+    /// When two versions are compatible, no breaking changes occur between
+    /// them.
     ///
-    /// Checking if A is compatible with B is not the same as checking if B is compatible with A.
-    /// For example,
+    /// Checking if A is compatible with B is not the same as checking if B is
+    /// compatible with A. For example,
     ///
     /// ```
     /// let a = Semver::from_str("1.0.0").unwrap();
@@ -44,15 +46,17 @@ where
     /// assert!(!b.is_compatible(a))
     /// ```
     ///
-    /// That is because bigger minor versions on the same major version may introduce new features
-    /// that the lower minor version does not have. However, changes on bigger minor versions will
-    /// not be breaking (unless the major is 0), so software compatible with a smaller minor
+    /// That is because bigger minor versions on the same major version may
+    /// introduce new features that the lower minor version does not have.
+    /// However, changes on bigger minor versions will not be breaking
+    /// (unless the major is 0), so software compatible with a smaller minor
     /// version will be compatible with greater minor versions.
     ///
     /// Rules:
     /// * If major versions differ, this is false.
     /// * If major versions are 0 and minor versions differ, this is false.
-    /// * If this version's minor is greater than the other version's minor, this is false.
+    /// * If this version's minor is greater than the other version's minor,
+    ///   this is false.
     /// * If prerelease versions differ, this is false.
     /// * If none of the checks above are false, this is true.
     pub fn is_compatible(&self, other: &Self) -> bool {
@@ -366,7 +370,10 @@ impl PartialOrd for Semver {
     }
 }
 
-impl Display for Semver {
+impl<T> Display for Semver<T>
+where
+    T: Number,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let prerelease = self
             .prerelease
@@ -395,7 +402,10 @@ impl Display for Semver {
     }
 }
 
-impl Serialize for Semver {
+impl<T> Serialize for Semver<T>
+where
+    T: Number,
+{
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -404,21 +414,30 @@ impl Serialize for Semver {
     }
 }
 
-impl<'de> Deserialize<'de> for Semver {
+impl<'de, T> Deserialize<'de> for Semver<T>
+where
+    T: Number,
+{
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        struct SemverVisitor;
+        #[derive(Default)]
+        struct SemverVisitor<T>
+        where
+            T: Number,
+        {
+            inner: PhantomData<T>,
+        }
 
-        impl<'de> Visitor<'de> for SemverVisitor {
-            type Value = Semver;
+        impl<'de, T> Visitor<'de> for SemverVisitor<T>
+        where
+            T: Number,
+        {
+            type Value = Semver<T>;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                write!(
-                    formatter,
-                    "A semver 2.0.0-compliant version string, without a v prefix."
-                )
+                write!(formatter, "A semver 2.0.0-compliant version string, without a v prefix.")
             }
 
             fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
@@ -429,7 +448,7 @@ impl<'de> Deserialize<'de> for Semver {
             }
         }
 
-        deserializer.deserialize_str(SemverVisitor)
+        deserializer.deserialize_str(SemverVisitor { inner: PhantomData })
     }
 }
 
@@ -578,8 +597,9 @@ where
 /// * [`u64`]
 /// * [`u128`]
 ///
-/// Either of those types can be passed as a type parameter to [`Semver`]. [`Semver::major`],
-/// minor, patch, and prerelease and build parts will parse numeric values as the specified type.
+/// Either of those types can be passed as a type parameter to [`Semver`].
+/// [`Semver::major`], minor, patch, and prerelease and build parts will parse
+/// numeric values as the specified type.
 pub trait Number: Display + FromStr<Err: Debug + Send + Sync + Error + 'static> + Ord + Eq {
     const ZERO: Self;
 }
@@ -598,6 +618,303 @@ impl Number for u64 {
 }
 impl Number for u128 {
     const ZERO: Self = 0;
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SemverQuery<T = u64>
+where
+    T: Number,
+{
+    pub resource: Option<String>,
+    pub constraints: Vec<SemverConstraint<T>>,
+}
+
+impl<T> FromStr for SemverQuery<T>
+where
+    T: Number,
+{
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (resource, s) =
+            parse_resource(s).context("The passed semver query's resource was not valid ASCII.")?;
+
+        let mut constraints = Vec::new();
+        let constraint_strings: Vec<&str> = s.split(',').collect();
+
+        for string in constraint_strings {
+            let constraint =
+                SemverConstraint::from_str(string).context("Could not parse semver constraint.")?;
+            constraints.push(constraint);
+        }
+
+        Ok(Self {
+            resource,
+            constraints,
+        })
+    }
+}
+
+fn parse_resource(s: &str) -> anyhow::Result<(Option<String>, &str)> {
+    let mut result = String::new();
+
+    for ch in s.chars() {
+        if !ch.is_ascii() {
+            anyhow::bail!("A byte in the specified semver query string was not ASCII.");
+        }
+
+        if ch.is_ascii_alphanumeric() || ch == '-' {
+            result.push(ch);
+        } else {
+            break;
+        }
+    }
+
+    if result.is_empty() {
+        Ok((None, s))
+    } else {
+        let result_len = result.len();
+        Ok((Some(result), s.split_at(result_len).1))
+    }
+}
+
+impl<T> Display for SemverQuery<T>
+where
+    T: Number,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut constraints = Vec::new();
+        for constraint in &self.constraints {
+            constraints.push(constraint.to_string());
+        }
+        let constraints = constraints.join(",");
+
+        write!(f, "{}{}", self.resource.as_ref().unwrap_or(&String::new()), constraints)
+    }
+}
+
+impl<T> Serialize for SemverQuery<T>
+where
+    T: Number,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+impl<'de, T> Deserialize<'de> for SemverQuery<T>
+where
+    T: Number,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Default)]
+        struct SemverQueryVisitor<T>
+        where
+            T: Number,
+        {
+            inner: PhantomData<T>,
+        }
+
+        impl<'de, T> Visitor<'de> for SemverQueryVisitor<T>
+        where
+            T: Number,
+        {
+            type Value = SemverQuery<T>;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                write!(formatter, "A 2.0.0-compliant semver query.")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                SemverQuery::from_str(v).map_err(|e| E::custom(e.to_string()))
+            }
+        }
+
+        deserializer.deserialize_str(SemverQueryVisitor { inner: PhantomData })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SemverConstraint<T = u64>
+where
+    T: Number,
+{
+    pub operator: SemverOperator,
+    pub operand: SemverOperand<T>,
+}
+
+impl<T> FromStr for SemverConstraint<T>
+where
+    T: Number,
+{
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (operator, s) =
+            parse_operator(s).context("Could not parse semver constraint operator.")?;
+
+        let operand =
+            SemverOperand::from_str(s).context("Could not parse semver constraint operand.")?;
+
+        Ok(Self { operator, operand })
+    }
+}
+
+impl<T> Display for SemverConstraint<T>
+where
+    T: Number,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}{}", self.operator, self.operand)
+    }
+}
+
+impl<T> Serialize for SemverConstraint<T>
+where
+    T: Number,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+impl<'de, T> Deserialize<'de> for SemverConstraint<T>
+where
+    T: Number,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Default)]
+        struct SemverConstraintVisitor<T>
+        where
+            T: Number,
+        {
+            inner: PhantomData<T>,
+        }
+
+        impl<'de, T> Visitor<'de> for SemverConstraintVisitor<T>
+        where
+            T: Number,
+        {
+            type Value = SemverConstraint<T>;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                write!(formatter, "A 2.0.0-compliant semver constraint.")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                SemverConstraint::from_str(v).map_err(|e| E::custom(e.to_string()))
+            }
+        }
+
+        deserializer.deserialize_str(SemverConstraintVisitor { inner: PhantomData })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum SemverOperator {
+    #[serde(rename = "==")]
+    Equal,
+    #[serde(rename = "!=")]
+    NotEqual,
+    #[serde(rename = "<")]
+    LowerThan,
+    #[serde(rename = "<=")]
+    LowerThanOrEqual,
+    #[serde(rename = ">")]
+    GreaterThan,
+    #[serde(rename = ">=")]
+    GreaterThanOrEqual,
+    #[serde(rename = "^")]
+    Compatible,
+}
+
+impl Display for SemverOperator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self {
+            Self::Equal => write!(f, "=="),
+            Self::NotEqual => write!(f, "!="),
+            Self::LowerThan => write!(f, "<"),
+            Self::LowerThanOrEqual => write!(f, "<="),
+            Self::GreaterThan => write!(f, ">"),
+            Self::GreaterThanOrEqual => write!(f, ">="),
+            Self::Compatible => write!(f, "^"),
+        }
+    }
+}
+
+fn parse_operator(s: &str) -> anyhow::Result<(SemverOperator, &str)> {
+    let maps = [
+        (SemverOperator::Equal, "=="),
+        (SemverOperator::GreaterThanOrEqual, ">="),
+        (SemverOperator::GreaterThan, ">"),
+        (SemverOperator::LowerThanOrEqual, "<="),
+        (SemverOperator::LowerThan, "<"),
+        (SemverOperator::Compatible, "^"),
+        (SemverOperator::NotEqual, "!="),
+    ];
+
+    for (operator, string) in maps {
+        if s.starts_with(string) {
+            return Ok((operator, s.split_at(string.len()).1));
+        }
+    }
+
+    anyhow::bail!("The string passed did not start with a semver operator.");
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SemverOperand<T = u64>
+where
+    T: Number,
+{
+    Latest,
+    Version(Semver<T>),
+}
+
+impl<T> FromStr for SemverOperand<T>
+where
+    T: Number,
+{
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s == "latest" {
+            return Ok(Self::Latest);
+        }
+
+        Ok(Self::Version(Semver::from_str(s)?))
+    }
+}
+
+impl<T> Display for SemverOperand<T>
+where
+    T: Number,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self {
+            Self::Latest => write!(f, "latest"),
+            Self::Version(version) => write!(f, "{version}"),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -641,10 +958,7 @@ mod tests {
 
         for version in &versions {
             let result = Semver::<u64>::from_str(version);
-            assert!(
-                result.is_ok(),
-                "Semver::from_str(\"{version}\") == {result:?}"
-            );
+            assert!(result.is_ok(), "Semver::from_str(\"{version}\") == {result:?}");
         }
     }
 
@@ -695,10 +1009,7 @@ mod tests {
 
         for version in &versions {
             let result = Semver::<u128>::from_str(version);
-            assert!(
-                result.is_err(),
-                "Semver::from_str(\"{version}\") == {result:?}"
-            );
+            assert!(result.is_err(), "Semver::from_str(\"{version}\") == {result:?}");
         }
     }
 
@@ -748,10 +1059,7 @@ mod tests {
             let a_semver: Semver<u8> = Semver::from_str(a).unwrap();
             let b_semver: Semver<u8> = Semver::from_str(b).unwrap();
 
-            assert!(
-                a_semver.is_compatible(&b_semver),
-                "{a} is not compatible with {b}"
-            );
+            assert!(a_semver.is_compatible(&b_semver), "{a} is not compatible with {b}");
         }
     }
 
@@ -769,10 +1077,7 @@ mod tests {
             let a_semver: Semver<u8> = Semver::from_str(a).unwrap();
             let b_semver: Semver<u8> = Semver::from_str(b).unwrap();
 
-            assert!(
-                !a_semver.is_compatible(&b_semver),
-                "{a} is compatible with {b}"
-            );
+            assert!(!a_semver.is_compatible(&b_semver), "{a} is compatible with {b}");
         }
     }
 
@@ -790,9 +1095,79 @@ mod tests {
         ];
 
         for version in versions {
-            let semver = Semver::from_str(version).unwrap();
+            let semver: Semver<u64> = Semver::from_str(version).unwrap();
 
             assert_eq!(version, semver.to_string());
         }
+    }
+
+    #[test]
+    fn test_semver_query_parse_resource() {
+        let string = "package-name>=1.2.3";
+        let (resource, string) = parse_resource(string).unwrap();
+        assert_eq!(resource, Some("package-name".into()));
+        assert_eq!(string, ">=1.2.3");
+
+        let string = ">=1.2.3";
+        let (resource, string) = parse_resource(string).unwrap();
+        assert_eq!(resource, None);
+        assert_eq!(string, ">=1.2.3");
+    }
+
+    #[test]
+    fn test_semver_query_parse_operator() {
+        let maps = [
+            ("^1.2.3", SemverOperator::Compatible, "1.2.3"),
+            ("==1.2.3", SemverOperator::Equal, "1.2.3"),
+            ("!=1.2.3", SemverOperator::NotEqual, "1.2.3"),
+            (">1.2.3", SemverOperator::GreaterThan, "1.2.3"),
+            (">=1.2.3", SemverOperator::GreaterThanOrEqual, "1.2.3"),
+            ("<1.2.3", SemverOperator::LowerThan, "1.2.3"),
+            ("<=1.2.3", SemverOperator::LowerThanOrEqual, "1.2.3"),
+        ];
+
+        for (string, operator, remaining) in maps {
+            let (parsed_operator, parsed_remaining) = parse_operator(string).unwrap();
+
+            assert_eq!(operator, parsed_operator);
+            assert_eq!(remaining, parsed_remaining);
+        }
+    }
+
+    #[test]
+    fn test_semver_query_parse_constraint() {
+        let string = ">=1.2.3";
+        let constraint: SemverConstraint<u64> = SemverConstraint::from_str(string).unwrap();
+
+        assert_eq!(
+            constraint,
+            SemverConstraint {
+                operator: SemverOperator::GreaterThanOrEqual,
+                operand: SemverOperand::Version(Semver::from_str("1.2.3").unwrap())
+            }
+        );
+    }
+
+    #[test]
+    fn test_semver_query_parse() {
+        let string = "busybox>=1.0.0,<2.0.0-0";
+        let query: SemverQuery<u64> = SemverQuery::from_str(string).unwrap();
+
+        assert_eq!(
+            query,
+            SemverQuery {
+                resource: Some("busybox".into()),
+                constraints: vec![
+                    SemverConstraint {
+                        operand: SemverOperand::Version(Semver::from_str("1.0.0").unwrap()),
+                        operator: SemverOperator::GreaterThanOrEqual,
+                    },
+                    SemverConstraint {
+                        operand: SemverOperand::Version(Semver::from_str("2.0.0-0").unwrap()),
+                        operator: SemverOperator::LowerThan,
+                    }
+                ]
+            }
+        );
     }
 }

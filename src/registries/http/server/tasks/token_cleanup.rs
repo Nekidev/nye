@@ -1,8 +1,6 @@
 use std::time::Duration;
 
 use anyhow::Context;
-use jiff::Zoned;
-use tokio::time;
 
 use crate::registries::http::server::database::Token;
 use crate::registries::http::server::state::RegistryState;
@@ -24,9 +22,9 @@ pub async fn run(state: RegistryState) -> anyhow::Result<()> {
         .context("Could not connect to database.")?;
 
     loop {
-        time::sleep(Duration::from_mins(1)).await;
+        tokio::time::sleep(Duration::from_mins(1)).await;
 
-        Token::filter(Token::fields().expires_at().lt(Zoned::now()))
+        Token::filter(Token::fields().expires_at().lt(crate::time::utc_now_ms()))
             .delete()
             .exec(&mut db)
             .await

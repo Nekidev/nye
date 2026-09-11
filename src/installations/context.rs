@@ -47,10 +47,7 @@ impl Context {
     }
 
     pub fn get_database_url(&self) -> String {
-        format!(
-            "sqlite://{}",
-            self.root.join("pkg").join("state.db").display()
-        )
+        format!("sqlite://{}", self.root.join("pkg").join("state.db").display())
     }
 
     pub fn get_package_installation_path(

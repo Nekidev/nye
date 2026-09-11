@@ -2,13 +2,14 @@ use std::net::SocketAddr;
 
 use axum::Json;
 use axum::extract::ConnectInfo;
-use jiff::Zoned;
 use serde::{Deserialize, Serialize};
 
 use crate::registries::http::server::database::User;
 use crate::registries::http::server::state::State;
-use crate::registries::http::server::v1::errors::{Error, OrHttpError};
+use crate::registries::http::server::v1::duckity::{self, Endpoint};
+use crate::registries::http::server::v1::errors::{Error, ResultOrHttpError};
 use crate::registries::http::server::v1::schemas::{Email, Password, Username};
+use crate::time;
 
 #[derive(Serialize, Deserialize)]
 pub struct SignupRequestPayload {
@@ -28,33 +29,7 @@ pub async fn handle(
     client: ConnectInfo<SocketAddr>,
     Json(payload): Json<SignupRequestPayload>,
 ) -> Result<Json<SignupResponsePayload>, Error> {
-    // TODO: Migrate this check and /v1/signin's to a duckity.rs module, alternate between
-    //       protection profiles in config with an enum to keep it DRY.
-
-    if let Some(config) = &*state.duckity {
-        let Some(solution) = payload.duckity else {
-            return Err(Error::new_422(
-                "Missing Duckity Solution",
-                "This registry requires Duckity solution tokens to be sent when signing up.",
-            ));
-        };
-
-        let is_valid = duckity::validate(
-            solution,
-            client.ip(),
-            &config.application_secret,
-            &config.signup_protection_profile_id,
-        )
-        .await
-        .or_http_500()?;
-
-        if !is_valid {
-            return Err(Error::new_422(
-                "Invalid Duckity Solution",
-                "The Duckity solution token provided was invalid.",
-            ));
-        }
-    }
+    duckity::protect(&state.duckity, client.ip(), &payload.duckity, Endpoint::SignUp).await?;
 
     let mut db = state.db.connection().await.or_http_500()?;
     let mut db = db.transaction().await.or_http_500()?;
@@ -92,8 +67,8 @@ pub async fn handle(
         name: payload.name,
         email: payload.email,
         password: payload.password.hash().await,
-        created_at: Zoned::now(),
-        updated_at: Zoned::now()
+        created_at: time::utc_now_ms(),
+        updated_at: time::utc_now_ms(),
     })
     .exec(&mut db)
     .await
