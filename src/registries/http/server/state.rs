@@ -8,8 +8,16 @@ use crate::registries::http::server::storage::StorageBackend;
 #[derive(Debug, Clone)]
 pub struct RegistryState {
     pub db: Db,
+    pub registry: Arc<RegistryConfig>,
     pub duckity: Arc<Option<DuckityState>>,
     pub storage: Arc<StorageBackend>,
+}
+
+#[derive(Debug, Clone)]
+pub struct RegistryConfig {
+    pub name: String,
+    pub is_signup_enabled: bool,
+    pub is_signin_enabled: bool,
 }
 
 #[derive(Debug, Clone)]

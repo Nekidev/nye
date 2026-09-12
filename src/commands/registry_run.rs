@@ -6,7 +6,7 @@ use colored::Colorize;
 use crate::args::{Args, RegistrySubcommandRunSubcommandArgs};
 use crate::registries;
 use crate::registries::http::server::database;
-use crate::registries::http::server::state::{DuckityState, RegistryState};
+use crate::registries::http::server::state::{DuckityState, RegistryConfig, RegistryState};
 use crate::registries::http::server::storage::StorageBackend;
 
 pub async fn run(_args: &Args, cmd: &RegistrySubcommandRunSubcommandArgs) -> anyhow::Result<()> {
@@ -17,6 +17,11 @@ pub async fn run(_args: &Args, cmd: &RegistrySubcommandRunSubcommandArgs) -> any
         .context("Could not connect to registry database.")?;
     let state = RegistryState {
         db: database,
+        registry: Arc::new(RegistryConfig {
+            name: cmd.registry.name.clone(),
+            is_signin_enabled: !cmd.registry.no_signin,
+            is_signup_enabled: !cmd.registry.no_signup,
+        }),
         duckity: Arc::new(cmd.duckity.clone().map(|c| DuckityState {
             application_secret: c.application_secret,
             signin_protection_profile_id: c.signin_protection_profile_id,

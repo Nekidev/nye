@@ -34,7 +34,7 @@ impl Storage for S3StorageBackend {
             .key(key.clone())
             .send()
             .await
-            .context(format!("Could not store file `{key}` in S3 storage."));
+            .context(format!("Could not store file `{key}` in S3 storage."))?;
 
         Ok(())
     }

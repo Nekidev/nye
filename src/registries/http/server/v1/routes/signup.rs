@@ -29,6 +29,10 @@ pub async fn handle(
     client: ConnectInfo<SocketAddr>,
     Json(payload): Json<SignupRequestPayload>,
 ) -> Result<Json<SignupResponsePayload>, Error> {
+    if !state.registry.is_signup_enabled {
+        return Err(Error::http_403())
+    }
+
     duckity::protect(&state.duckity, client.ip(), &payload.duckity, Endpoint::SignUp).await?;
 
     let mut db = state.db.connection().await.or_http_500()?;

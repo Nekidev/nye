@@ -37,6 +37,7 @@ pub struct Args {
     pub subcommand: Option<Subcommand>,
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(clap::Subcommand)]
 pub enum Subcommand {
     /// Create, pack, and publish packages.
@@ -66,7 +67,7 @@ pub enum Subcommand {
     Toasty(ToastySubcommandArgs),
 }
 
-#[derive(clap::Parser)]
+#[derive(clap::Args)]
 pub struct DevSubcommandArgs {
     #[command(subcommand)]
     pub subcommand: DevSubcommandSubcommand,
@@ -87,7 +88,7 @@ pub enum DevSubcommandSubcommand {
     Pack(DevSubcommandPackSubcommandArgs),
 }
 
-#[derive(clap::Parser)]
+#[derive(clap::Args)]
 pub struct DevSubcommandInitSubcommandArgs {
     /// The directory to use for the new package project.
     #[arg(default_value = ".")]
@@ -103,7 +104,7 @@ pub struct DevSubcommandInitSubcommandArgs {
     pub help: Option<bool>,
 }
 
-#[derive(clap::Parser)]
+#[derive(clap::Args)]
 pub struct DevSubcommandPackSubcommandArgs {
     /// Filter the supported targets to package.
     #[arg(short, long = "target")]
@@ -118,7 +119,7 @@ pub struct DevSubcommandPackSubcommandArgs {
     pub help: Option<bool>,
 }
 
-#[derive(clap::Parser)]
+#[derive(clap::Args)]
 pub struct InstallSubcommandArgs {
     /// The path to one or more installable package files.
     #[arg(short, long)]
@@ -129,7 +130,7 @@ pub struct InstallSubcommandArgs {
     pub help: Option<bool>,
 }
 
-#[derive(clap::Parser)]
+#[derive(clap::Args)]
 pub struct UninstallSubcommandArgs {
     /// The names of the packages to uninstall.
     pub packages: Vec<String>,
@@ -139,7 +140,7 @@ pub struct UninstallSubcommandArgs {
     pub help: Option<bool>,
 }
 
-#[derive(clap::Parser)]
+#[derive(clap::Args)]
 pub struct ListSubcommandArgs {
     #[command(subcommand)]
     pub subcommand: Option<ListSubcommandSubcommand>,
@@ -160,14 +161,14 @@ pub enum ListSubcommandSubcommand {
     Libs(ListSubcommandLibsSubcommandArgs),
 }
 
-#[derive(clap::Parser)]
+#[derive(clap::Args)]
 pub struct ListSubcommandBinsSubcommandArgs {
     /// Display instructions on how to use nye list bins.
     #[arg(short, long, action = ArgAction::Help)]
     pub help: Option<bool>,
 }
 
-#[derive(clap::Parser)]
+#[derive(clap::Args)]
 pub struct ListSubcommandLibsSubcommandArgs {
     /// Display instructions on how to use nye list libs.
     #[arg(short, long, action = ArgAction::Help)]
@@ -175,7 +176,7 @@ pub struct ListSubcommandLibsSubcommandArgs {
 }
 
 #[cfg(feature = "registry")]
-#[derive(clap::Parser)]
+#[derive(clap::Args)]
 pub struct RegistrySubcommandArgs {
     /// Display instructions on how to use nye registry.
     #[arg(short, long, action = ArgAction::Help)]
@@ -186,6 +187,7 @@ pub struct RegistrySubcommandArgs {
 }
 
 #[cfg(feature = "registry")]
+#[allow(clippy::large_enum_variant)]
 #[derive(clap::Subcommand)]
 pub enum RegistrySubcommandSubcommand {
     /// Run an HTTP registry server.
@@ -199,19 +201,11 @@ pub enum RegistrySubcommandSubcommand {
 }
 
 #[cfg(feature = "registry")]
-#[derive(clap::Parser)]
+#[derive(clap::Args)]
 pub struct RegistrySubcommandRunSubcommandArgs {
     /// The address to listen for incoming connections at.
     #[arg(env = "NYE_REGISTRY_BIND", default_value = "127.0.0.1:3000")]
     pub bind: SocketAddr,
-
-    #[clap(flatten)]
-    pub duckity: Option<RegistrySubcommandRunSubcommandArgsDuckity>,
-
-    #[clap(flatten)]
-    pub storage_s3: Option<RegistrySubcommandRunSubcommandArgsStorageS3>,
-    #[clap(flatten)]
-    pub storage_file: Option<RegistrySubcommandRunSubcommandArgsStorageLocal>,
 
     /// The PostgreSQL database URL to run on.
     #[arg(
@@ -222,9 +216,50 @@ pub struct RegistrySubcommandRunSubcommandArgs {
     )]
     pub database_url: Url,
 
+    #[clap(flatten)]
+    pub registry: RegistrySubcommandRunSubcommandArgsRegistry,
+
+    #[clap(flatten)]
+    pub duckity: Option<RegistrySubcommandRunSubcommandArgsDuckity>,
+
+    #[clap(flatten)]
+    pub storage_s3: Option<RegistrySubcommandRunSubcommandArgsStorageS3>,
+    #[clap(flatten)]
+    pub storage_file: Option<RegistrySubcommandRunSubcommandArgsStorageLocal>,
+
     /// Display instructions on how to use nye registry run.
     #[arg(short, long, action = ArgAction::Help)]
     pub help: Option<bool>,
+}
+
+#[cfg(feature = "registry")]
+#[derive(clap::Args, Clone)]
+pub struct RegistrySubcommandRunSubcommandArgsRegistry {
+    /// The registry name users will see when setting up your registry.
+    #[arg(
+        short,
+        long = "registry-name",
+        env = "NYE_REGISTRY_NAME",
+        default_value = "A Nye Package Registry"
+    )]
+    pub name: String,
+
+    /// Disable account creation.
+    #[arg(
+        short = 'f',
+        long = "registry-no-signup",
+        env = "NYE_REGISTRY_NO_SIGNUP",
+        action = ArgAction::SetTrue
+    )]
+    pub no_signup: bool,
+    /// Disable account login.
+    #[arg(
+        short = 'g',
+        long = "registry-no-signin",
+        env = "NYE_REGISTRY_NO_SIGNIN",
+        action = ArgAction::SetTrue
+    )]
+    pub no_signin: bool,
 }
 
 #[cfg(feature = "registry")]
@@ -335,7 +370,7 @@ pub struct RegistrySubcommandRunSubcommandArgsStorageLocal {
 }
 
 #[cfg(all(debug_assertions, feature = "registry"))]
-#[derive(clap::Parser)]
+#[derive(clap::Args)]
 pub struct RegistrySubcommandToastySubcommandArgs {
     /// The arguments to pass to the toasty command.
     pub args: Vec<String>,
@@ -354,7 +389,7 @@ pub struct RegistrySubcommandToastySubcommandArgs {
 }
 
 #[cfg(debug_assertions)]
-#[derive(clap::Parser)]
+#[derive(clap::Args)]
 pub struct ToastySubcommandArgs {
     /// The arguments to pass to the toasty command.
     pub args: Vec<String>,

@@ -33,6 +33,10 @@ pub async fn handle(
     client: ConnectInfo<SocketAddr>,
     Json(payload): Json<SigninRequestPayload>,
 ) -> Result<Json<SigninResponsePayload>, Error> {
+    if !state.registry.is_signin_enabled {
+        return Err(Error::http_403())
+    }
+
     duckity::protect(&state.duckity, client.ip(), &payload.duckity, Endpoint::SignIn).await?;
 
     let mut db = state.db.connection().await.or_http_500()?;
@@ -65,7 +69,7 @@ pub async fn handle(
             user_id: &user.id,
             created_at: time::utc_now_ms(),
             updated_at: time::utc_now_ms(),
-            expires_at: time::utc_now_ms() + 7 * 24 * 60 * 60 * 1000,
+            expires_at: time::utc_now_ms() + 3 * 24 * 60 * 60 * 1000,
         })
         .exec(&mut db)
         .await
@@ -77,7 +81,7 @@ pub async fn handle(
             access_token: access_token.id,
             access_token_expires_in: 3600,
             refresh_token: refresh_token.id,
-            refresh_token_expires_in: 3600 * 24 * 7,
+            refresh_token_expires_in: 3600 * 24 * 3,
         }
         .into())
     } else {

@@ -82,11 +82,20 @@ impl Error {
         }
     }
 
+    pub fn http_403() -> Self {
+        Self {
+            status: StatusCode::FORBIDDEN,
+            title: "Forbidden".into(),
+            message: "You don't seem to have permission to do this. Are you sure you're at the right place?".into(),
+        }
+    }
+
     pub fn http_413() -> Self {
         Self {
             status: StatusCode::PAYLOAD_TOO_LARGE,
             title: "Content Too Large".into(),
-            message: "You uploaded a file that was wayy too large. Reduce its size and try again.".into(),
+            message: "You uploaded a file that was wayy too large. Reduce its size and try again."
+                .into(),
         }
     }
 
