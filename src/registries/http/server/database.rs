@@ -105,10 +105,11 @@ pub struct PackageVersion {
 }
 
 #[derive(toasty::Model, Clone)]
+#[unique(version_id, target)]
 pub struct PackageVersionBundle {
     #[key]
     pub id: String,
-    pub target: Target,
+    pub target: String,
 
     pub file: String,
 

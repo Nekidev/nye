@@ -34,6 +34,14 @@ impl Error {
         }
     }
 
+    pub fn new_403(title: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::FORBIDDEN,
+            title: title.into(),
+            message: message.into(),
+        }
+    }
+
     pub fn new_409(title: impl Into<String>, message: impl Into<String>) -> Self {
         Self {
             status: StatusCode::CONFLICT,
@@ -71,6 +79,14 @@ impl Error {
             status: StatusCode::UNAUTHORIZED,
             title: "Unauthorized".into(),
             message: "This action requires authorization. Did you send an Authorization header? Was it valid? Did the token expire? Right token type?".into(),
+        }
+    }
+
+    pub fn http_413() -> Self {
+        Self {
+            status: StatusCode::PAYLOAD_TOO_LARGE,
+            title: "Content Too Large".into(),
+            message: "You uploaded a file that was wayy too large. Reduce its size and try again.".into(),
         }
     }
 

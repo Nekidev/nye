@@ -61,7 +61,7 @@ pub async fn handle(state: State, params: Query<BundleQueryParams>) -> Result<Pa
             Package::fields()
                 .versions()
                 .bundles()
-                .filter(PackageVersionBundle::fields().target().eq(params.target)),
+                .filter(PackageVersionBundle::fields().target().eq(params.target.to_string())),
         )
         .exec(&mut db)
         .await

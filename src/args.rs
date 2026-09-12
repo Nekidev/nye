@@ -208,10 +208,16 @@ pub struct RegistrySubcommandRunSubcommandArgs {
     #[clap(flatten)]
     pub duckity: Option<RegistrySubcommandRunSubcommandArgsDuckity>,
 
+    #[clap(flatten)]
+    pub storage_s3: Option<RegistrySubcommandRunSubcommandArgsStorageS3>,
+    #[clap(flatten)]
+    pub storage_file: Option<RegistrySubcommandRunSubcommandArgsStorageLocal>,
+
     /// The PostgreSQL database URL to run on.
     #[arg(
         short,
         long,
+        env = "NYE_REGISTRY_DATABASE_URL",
         default_value = "postgres://postgres:postgres@localhost:5432/postgres"
     )]
     pub database_url: Url,
@@ -233,7 +239,7 @@ pub struct RegistrySubcommandRunSubcommandArgsDuckity {
     /// endpoints.
     #[arg(
         required = false,
-        short,
+        short = 'c',
         long = "duckity-application-secret",
         env = "NYE_REGISTRY_DUCKITY_APPLICATION_SECRET"
     )]
@@ -258,7 +264,77 @@ pub struct RegistrySubcommandRunSubcommandArgsDuckity {
     pub signup_protection_profile_id: String,
 }
 
-#[cfg(debug_assertions)]
+#[cfg(feature = "registry")]
+#[derive(clap::Args, Clone)]
+#[group(
+    requires = "region",
+    requires = "endpoint_url",
+    requires = "bucket_name",
+    requires = "access_key",
+    requires = "secret_key"
+)]
+pub struct RegistrySubcommandRunSubcommandArgsStorageS3 {
+    /// The S3 region where to store package files.
+    #[arg(
+        required = false,
+        short = 'r',
+        long = "s3-region",
+        env = "NYE_REGISTRY_STORAGE_S3_REGION"
+    )]
+    pub region: String,
+
+    /// The S3 endpoint URL where to store package files.
+    #[arg(
+        required = false,
+        short = 'e',
+        long = "s3-endpoint-url",
+        env = "NYE_REGISTRY_STORAGE_S3_ENDPOINT_URL"
+    )]
+    pub endpoint_url: String,
+
+    /// The name of the S3 bucket where to store package files.
+    #[arg(
+        required = false,
+        short = 'b',
+        long = "s3-bucket-name",
+        env = "NYE_REGISTRY_STORAGE_S3_BUCKET_NAME"
+    )]
+    pub bucket_name: String,
+
+    /// The access key to the S3 bucket where to store package files.
+    #[arg(
+        required = false,
+        short = 'a',
+        long = "s3-access-key",
+        env = "NYE_REGISTRY_STORAGE_S3_ACCESS_KEY"
+    )]
+    pub access_key: String,
+
+    /// The secret key to the S3 bucket where to store package files.
+    #[arg(
+        required = false,
+        short = 's',
+        long = "s3-secret-key",
+        env = "NYE_REGISTRY_STORAGE_S3_SECRET_KEY"
+    )]
+    pub secret_key: String,
+}
+
+#[cfg(feature = "registry")]
+#[derive(clap::Args, Clone)]
+#[group(requires = "location")]
+pub struct RegistrySubcommandRunSubcommandArgsStorageLocal {
+    /// The path to the local directory under which to store package files.
+    #[arg(
+        required = false,
+        short,
+        long = "local-location",
+        env = "NYE_REGISTRY_STORAGE_LOCAL_LOCATION"
+    )]
+    pub location: PathBuf,
+}
+
+#[cfg(all(debug_assertions, feature = "registry"))]
 #[derive(clap::Parser)]
 pub struct RegistrySubcommandToastySubcommandArgs {
     /// The arguments to pass to the toasty command.

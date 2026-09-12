@@ -1,5 +1,6 @@
 pub mod args;
 pub mod commands;
+pub mod deferred;
 pub mod display;
 pub mod installations;
 pub mod packages;

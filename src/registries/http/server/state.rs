@@ -3,10 +3,13 @@ use std::sync::Arc;
 use axum::extract::State as AxumState;
 use toasty::Db;
 
+use crate::registries::http::server::storage::StorageBackend;
+
 #[derive(Debug, Clone)]
 pub struct RegistryState {
     pub db: Db,
     pub duckity: Arc<Option<DuckityState>>,
+    pub storage: Arc<StorageBackend>,
 }
 
 #[derive(Debug, Clone)]

@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fs::Permissions;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
@@ -10,7 +10,7 @@ use async_zip::tokio::read::seek::ZipFileReader;
 use jiff::Zoned;
 use toasty::Transaction;
 use tokio::fs::{self, File};
-use tokio::io::{self, AsyncReadExt, BufReader};
+use tokio::io::{self, BufReader};
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 
 use crate::installations::context::Context;
@@ -19,11 +19,10 @@ use crate::installations::wrapper::{
     BinaryWrapper, BinaryWrapperBinary, BinaryWrapperConsumedVariable,
     BinaryWrapperDeclaredVariable, BinaryWrapperPackage,
 };
-use crate::packages::Manifest;
 use crate::packages::manifest::ManifestConsumesEnv;
+use crate::packages::{Manifest, extraction};
 use crate::semver::Semver;
 use crate::targets::Target;
-use crate::validation::{self, Validate};
 
 /// Installs an installable package file.
 ///
@@ -39,7 +38,7 @@ pub async fn install(ctx: Context, path: PathBuf) -> anyhow::Result<Manifest> {
         .await
         .context("Could not open installable package file. Is the file a package?")?;
 
-    let manifest = get_manifest_from_zip(&mut zip)
+    let manifest = extraction::validate(&mut zip)
         .await
         .context("Could not get manifest from package file. Is the file a package?")?;
 
@@ -52,12 +51,6 @@ pub async fn install(ctx: Context, path: PathBuf) -> anyhow::Result<Manifest> {
             manifest.package.target
         );
     }
-
-    let paths = validate_zip_contents(&mut zip).context("The package file was invalid.")?;
-    validate_manifest_exposed_bins(&manifest, &paths)
-        .context("The package file's exposed bins were misconfigured.")?;
-    validate_manifest_exposed_libs(&manifest, &paths)
-        .context("The package file's exposed libs were misconfigured.")?;
 
     let mut db = database::connect(ctx.get_database_url())
         .await
@@ -106,112 +99,6 @@ async fn open_zip_file(path: &Path) -> anyhow::Result<ZipFileReader<BufReader<Fi
         .context("Could not read installable package file.")?;
 
     Ok(zip)
-}
-
-async fn get_manifest_from_zip(
-    zip: &mut ZipFileReader<BufReader<File>>,
-) -> anyhow::Result<Manifest> {
-    if !zip.file().entries().is_empty() {
-        for index in 0..zip.file().entries().len() {
-            let entry = zip.file().entries().get(index).unwrap();
-            let filename = entry
-                .filename()
-                .as_str()
-                .context("Could not decode package file name.")?;
-
-            if filename == "nye.toml" {
-                if entry.uncompressed_size() > 1024 * 1024 {
-                    anyhow::bail!("The manifest file in the package file was bigger than 1MB.");
-                }
-
-                let reader = zip.reader_without_entry(index).await.context(
-                    "Could not get reader for manifest file in package file. This is weird.",
-                )?;
-
-                let mut string = String::new();
-                reader
-                    .compat()
-                    .read_to_string(&mut string)
-                    .await
-                    .context("Could not read nye.toml manifest in package file to string. Are its contents correct?")?;
-
-                let manifest: Manifest = toml::from_str(&string)
-                    .context("The nye.toml manifest in the package file had invalid contents.")?;
-
-                manifest
-                    .validate()
-                    .context("The package file's nye.toml manifest was invalid.")?;
-
-                return Ok(manifest);
-            }
-        }
-    }
-
-    anyhow::bail!("The specified package file did not have any nye.toml manifest in it.");
-}
-
-fn validate_zip_contents(
-    zip: &mut ZipFileReader<BufReader<File>>,
-) -> anyhow::Result<HashSet<String>> {
-    let mut paths = HashSet::new();
-
-    for index in 0..zip.file().entries().len() {
-        let entry = zip.file().entries().get(index).unwrap();
-        let filename = entry.filename().clone().into_string().context(concat!(
-            "A file in the package file could not have its name converted to a string. Is it ",
-            "using weird characters?"
-        ))?;
-
-        validation::is_safe_path(&filename).context(format!(
-            "The package file contained a file, `{filename}`, whose filename was not safe."
-        ))?;
-
-        let dir_prefixes = ["bin/", "lib/", "etc/", "var/"];
-
-        if !dir_prefixes.iter().any(|i| filename.starts_with(i)) && filename != "nye.toml" {
-            anyhow::bail!("The package file contained an out-of-place entry, `{filename}`.");
-        }
-
-        paths.insert(filename);
-    }
-
-    Ok(paths)
-}
-
-fn validate_manifest_exposed_bins(
-    manifest: &Manifest,
-    paths: &HashSet<String>,
-) -> anyhow::Result<()> {
-    for exposed_bin in &manifest.exposes.bin {
-        let path = PathBuf::from("bin").join(&exposed_bin.path);
-
-        if !paths.contains(&path.display().to_string()) {
-            anyhow::bail!(
-                "The package file specfied an exposed binary in its manifest that was not present, `{}`.",
-                path.display()
-            );
-        }
-    }
-
-    Ok(())
-}
-
-fn validate_manifest_exposed_libs(
-    manifest: &Manifest,
-    paths: &HashSet<String>,
-) -> anyhow::Result<()> {
-    for exposed_lib in &manifest.exposes.lib {
-        let path = PathBuf::from("lib").join(&exposed_lib.path);
-
-        if !paths.contains(&path.display().to_string()) {
-            anyhow::bail!(
-                "The package file specfied an exposed library in its manifest that was not present, `{}`.",
-                path.display()
-            );
-        }
-    }
-
-    Ok(())
 }
 
 async fn check_collissions(

@@ -9,6 +9,7 @@ use crate::registries::http::server::state::RegistryState;
 
 pub mod database;
 pub mod state;
+pub mod storage;
 pub mod tasks;
 pub mod v1;
 
