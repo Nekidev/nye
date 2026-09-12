@@ -1,8 +1,6 @@
 use anyhow::Context;
 use toasty::{Db, Deferred};
 
-use crate::targets::Target;
-
 static MIGRATIONS: toasty::migration::MigrationSet =
     toasty::embed_migrations!("src/registries/http/server/toasty");
 

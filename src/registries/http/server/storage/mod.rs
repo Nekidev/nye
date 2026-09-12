@@ -26,13 +26,13 @@ pub trait Storage {
     /// Arguments:
     /// * `key` - AKA filename.
     /// * `filename` - The path to the file in the local system.
-    async fn set_object(&self, key: impl Into<String>, filename: impl Into<String>) -> anyhow::Result<()>;
+    fn set_object(&self, key: impl Into<String>, filename: impl Into<String>) -> impl Future<Output = anyhow::Result<()>>;
 
     /// Returns a URL that can be used by clients to download the file.
     ///
     /// Arguments:
     /// * `key` - AKA filename.
-    async fn get_object_url(&self, key: impl Into<String>) -> anyhow::Result<Url>;
+    fn get_object_url(&self, key: impl Into<String>) -> impl Future<Output = anyhow::Result<Url>>;
 }
 
 #[derive(Debug)]
