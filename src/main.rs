@@ -1,7 +1,6 @@
 use anyhow::Context;
 use clap::{CommandFactory, FromArgMatches};
 use colored::Colorize;
-#[cfg(feature = "registry")]
 use nye::args::RegistrySubcommandSubcommand;
 use nye::args::{Args, DevSubcommandSubcommand, ListSubcommandSubcommand, Subcommand};
 use nye::targets::Target;
@@ -83,9 +82,8 @@ async fn main_inner() -> anyhow::Result<()> {
                     nye::commands::list_libs::run(&args, cmd).await?
                 }
             },
-            #[cfg(debug_assertions)]
-            Subcommand::Toasty(cmd) => nye::commands::toasty::run(&args, cmd).await?,
-            #[cfg(feature = "registry")]
+            Subcommand::Signin(cmd) => nye::commands::signin::run(&args, cmd).await?,
+            Subcommand::Signup(cmd) => nye::commands::signup::run(&args, cmd).await?,
             Subcommand::Registry(subcommand) => match &subcommand.subcommand {
                 RegistrySubcommandSubcommand::Run(cmd) => {
                     nye::commands::registry_run::run(&args, cmd).await?
@@ -95,6 +93,8 @@ async fn main_inner() -> anyhow::Result<()> {
                     nye::commands::registry_toasty::run(&args, cmd).await?
                 }
             },
+            #[cfg(debug_assertions)]
+            Subcommand::Toasty(cmd) => nye::commands::toasty::run(&args, cmd).await?,
         }
     } else {
         command_copy

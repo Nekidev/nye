@@ -1,9 +1,7 @@
-#[cfg(feature = "registry")]
 use std::net::SocketAddr;
 use std::path::PathBuf;
 
 use clap::ArgAction;
-#[cfg(any(debug_assertions, feature = "registry"))]
 use url::Url;
 
 use crate::targets::Target;
@@ -56,10 +54,15 @@ pub enum Subcommand {
     #[command(visible_alias = "l")]
     List(ListSubcommandArgs),
 
-    /// Registry HTTP server commands.
-    #[cfg(feature = "registry")]
+    /// Run and manage an HTTP registry.
     #[command(visible_alias = "r")]
     Registry(RegistrySubcommandArgs),
+
+    /// Sign into a registry.
+    Signin(SigninSubcommandArgs),
+
+    /// Sign up for a registry.
+    Signup(SignupSubcommandArgs),
 
     /// Toasty development migration commands.
     #[cfg(debug_assertions)]
@@ -175,7 +178,6 @@ pub struct ListSubcommandLibsSubcommandArgs {
     pub help: Option<bool>,
 }
 
-#[cfg(feature = "registry")]
 #[derive(clap::Args)]
 pub struct RegistrySubcommandArgs {
     /// Display instructions on how to use nye registry.
@@ -186,7 +188,6 @@ pub struct RegistrySubcommandArgs {
     pub subcommand: RegistrySubcommandSubcommand,
 }
 
-#[cfg(feature = "registry")]
 #[allow(clippy::large_enum_variant)]
 #[derive(clap::Subcommand)]
 pub enum RegistrySubcommandSubcommand {
@@ -200,7 +201,6 @@ pub enum RegistrySubcommandSubcommand {
     Toasty(RegistrySubcommandToastySubcommandArgs),
 }
 
-#[cfg(feature = "registry")]
 #[derive(clap::Args)]
 pub struct RegistrySubcommandRunSubcommandArgs {
     /// The address to listen for incoming connections at.
@@ -232,7 +232,6 @@ pub struct RegistrySubcommandRunSubcommandArgs {
     pub help: Option<bool>,
 }
 
-#[cfg(feature = "registry")]
 #[derive(clap::Args, Clone)]
 pub struct RegistrySubcommandRunSubcommandArgsRegistry {
     /// The registry name users will see when setting up your registry.
@@ -262,12 +261,11 @@ pub struct RegistrySubcommandRunSubcommandArgsRegistry {
     pub no_signin: bool,
 }
 
-#[cfg(feature = "registry")]
 #[derive(clap::Args, Clone)]
 #[group(
     requires = "application_secret",
-    requires = "signin_protection_profile_id",
-    requires = "signup_protection_profile_id"
+    requires = "signin_policy_id",
+    requires = "signup_policy_id"
 )]
 pub struct RegistrySubcommandRunSubcommandArgsDuckity {
     /// The Duckity application secret to use to protect sign in and sign up
@@ -280,26 +278,25 @@ pub struct RegistrySubcommandRunSubcommandArgsDuckity {
     )]
     pub application_secret: String,
 
-    /// The Duckity protection profile ID to use in the sign in endpoint.
+    /// The Duckity policy ID to use in the sign in endpoint.
     #[arg(
         required = false,
         short = 'i',
-        long = "duckity-singin-protection-profile-id",
-        env = "NYE_REGISTRY_DUCKITY_SIGNIN_PROTECTION_PROFILE_ID"
+        long = "duckity-singin-policy-id",
+        env = "NYE_REGISTRY_DUCKITY_SIGNIN_POLICY_ID"
     )]
-    pub signin_protection_profile_id: String,
+    pub signin_policy_id: String,
 
-    /// The Duckity protection profile ID to use in the sign up endpoint.
+    /// The Duckity policy ID to use in the sign up endpoint.
     #[arg(
         required = false,
         short = 'u',
-        long = "duckity-singup-protection-profile-id",
-        env = "NYE_REGISTRY_DUCKITY_SIGNUP_PROTECTION_PROFILE_ID"
+        long = "duckity-singup-policy-id",
+        env = "NYE_REGISTRY_DUCKITY_SIGNUP_POLICY_ID"
     )]
-    pub signup_protection_profile_id: String,
+    pub signup_policy_id: String,
 }
 
-#[cfg(feature = "registry")]
 #[derive(clap::Args, Clone)]
 #[group(
     requires = "region",
@@ -355,7 +352,6 @@ pub struct RegistrySubcommandRunSubcommandArgsStorageS3 {
     pub secret_key: String,
 }
 
-#[cfg(feature = "registry")]
 #[derive(clap::Args, Clone)]
 #[group(requires = "location")]
 pub struct RegistrySubcommandRunSubcommandArgsStorageLocal {
@@ -369,7 +365,7 @@ pub struct RegistrySubcommandRunSubcommandArgsStorageLocal {
     pub location: PathBuf,
 }
 
-#[cfg(all(debug_assertions, feature = "registry"))]
+#[cfg(debug_assertions)]
 #[derive(clap::Args)]
 pub struct RegistrySubcommandToastySubcommandArgs {
     /// The arguments to pass to the toasty command.
@@ -384,6 +380,45 @@ pub struct RegistrySubcommandToastySubcommandArgs {
     pub database_url: Url,
 
     /// Display instructions on how to use nye registry toasty.
+    #[arg(short, long, action = ArgAction::Help)]
+    pub help: Option<bool>,
+}
+
+#[derive(clap::Args)]
+pub struct SigninSubcommandArgs {
+    /// The URL of the registry to sign into. If it's not configured in registries.toml,
+    /// it'll be added automatically.
+    pub registry: Url,
+
+    /// The username to sign in with.
+    #[arg(short, long)]
+    pub username: Option<String>,
+    /// The password to sign in with.
+    #[arg(short, long)]
+    pub password: Option<String>,
+
+    /// Display instructions on how to use nye signin.
+    #[arg(short, long, action = ArgAction::Help)]
+    pub help: Option<bool>,
+}
+
+#[derive(clap::Args)]
+pub struct SignupSubcommandArgs {
+    /// The URL of the registry to sign up for. If it's not configured in registries.toml,
+    /// it'll be added automatically.
+    pub registry: Url,
+
+    /// The email to sign up with.
+    #[arg(short, long)]
+    pub email: Option<String>,
+    /// The username to sign up with.
+    #[arg(short, long)]
+    pub username: Option<String>,
+    /// The password to sign up with.
+    #[arg(short, long)]
+    pub password: Option<String>,
+
+    /// Display instructions on how to use nye signup.
     #[arg(short, long, action = ArgAction::Help)]
     pub help: Option<bool>,
 }

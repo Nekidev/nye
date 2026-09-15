@@ -4,10 +4,10 @@ use anyhow::Context;
 use toasty_cli::{Config, ToastyCli};
 
 use crate::args::{Args, RegistrySubcommandToastySubcommandArgs};
-use crate::registries::http::server::database;
+use crate::registries::http::database;
 
 pub async fn run(_args: &Args, cmd: &RegistrySubcommandToastySubcommandArgs) -> anyhow::Result<()> {
-    let config = Config::load_from(Path::new("src/registries/http/server/Toasty.toml"))?;
+    let config = Config::load_from(Path::new("src/registries/http/Toasty.toml"))?;
 
     let mut args = vec![String::from("toasty"), String::from("migration")];
     args.append(&mut cmd.args.clone());

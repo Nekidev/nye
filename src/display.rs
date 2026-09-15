@@ -1,6 +1,9 @@
 use std::fmt::Display;
 use std::time::Duration;
 
+use colored::Colorize;
+use dialoguer::theme::Theme;
+use dialoguer::{Input, Password, Select};
 use indicatif::{ProgressBar, ProgressStyle};
 use tabled::Table;
 use tabled::builder::Builder;
@@ -100,4 +103,195 @@ where
     table.with(Modify::new(Columns::first()).with(Padding::zero()));
 
     table
+}
+
+struct InputTheme;
+
+impl Theme for InputTheme {
+    fn format_input_prompt(
+        &self,
+        f: &mut dyn std::fmt::Write,
+        prompt: &str,
+        _default: Option<&str>,
+    ) -> std::fmt::Result {
+        let prefix = ">>>".purple();
+
+        write!(f, "{prefix} {prompt}")
+    }
+
+    fn format_input_prompt_selection(
+        &self,
+        f: &mut dyn std::fmt::Write,
+        prompt: &str,
+        sel: &str,
+    ) -> std::fmt::Result {
+        let prefix = ">>>".purple();
+
+        write!(f, "{prefix} {prompt}{sel}")
+    }
+
+    fn format_select_prompt(&self, f: &mut dyn std::fmt::Write, prompt: &str) -> std::fmt::Result {
+        let prefix = ">>>".purple();
+
+        write!(f, "{prefix} {prompt}")
+    }
+
+    fn format_select_prompt_item(
+        &self,
+        f: &mut dyn std::fmt::Write,
+        text: &str,
+        active: bool,
+    ) -> std::fmt::Result {
+        if active {
+            write!(f, "{}", format!("  * {text}").purple())
+        } else {
+            write!(f, "    {text}")
+        }
+    }
+
+    fn format_select_prompt_selection(
+        &self,
+        f: &mut dyn std::fmt::Write,
+        prompt: &str,
+        sel: &str,
+    ) -> std::fmt::Result {
+        let prefix = ">>>".purple();
+
+        write!(f, "{prefix} {prompt}{}", sel.purple())
+    }
+}
+
+/// Prompts the user for input.
+///
+/// Arguments:
+/// * `prompt` - The message to prompt the user with.
+///
+/// Returns:
+/// * `Ok(String)` - The user's input.
+/// * `Err(Error)` - If the user cancelled the operation or if the user could not be prompted.
+pub fn input(prompt: impl Into<String>) -> Result<String, dialoguer::Error> {
+    Input::with_theme(&InputTheme)
+        .with_prompt(prompt)
+        .interact_text()
+}
+
+/// Prompts the user for input.
+///
+/// Arguments:
+/// * `prompt` - The message to prompt the user with.
+///
+/// Returns:
+/// * `Ok(String)` - The user's input.
+/// * `Err(Error)` - If the user cancelled the operation or if the user could not be prompted.
+pub fn input_with_validation<'a, V>(
+    prompt: impl Into<String>,
+    validator: V,
+) -> Result<String, dialoguer::Error>
+where
+    V: FnMut(&String) -> Result<(), &'a str>,
+{
+    Input::with_theme(&InputTheme)
+        .with_prompt(prompt)
+        .validate_with(validator)
+        .interact_text()
+}
+
+/// Prompt the user for a password.
+///
+/// Arguments:
+/// * `prompt` - The message to prompt the user with.
+///
+/// Returns:
+/// * `Ok(String)` - The password they entered.
+/// * `Err(Error)` - If the user cancelled the operation of or the user could not be prompted.
+pub fn password(prompt: impl Into<String>) -> Result<String, dialoguer::Error> {
+    Password::with_theme(&InputTheme)
+        .with_prompt(prompt)
+        .interact()
+}
+
+/// Prompts the user for a password.
+///
+/// Arguments:
+/// * `prompt` - The message to prompt the user with.
+/// * `repeat` - Ask the user to confirm their password with this message.
+/// * `error` - The error to display if the user didn't confirm their password correctly.
+///
+/// Returns:
+/// * `Ok(String)` - The user's input.
+/// * `Err(Error)` - If the user cancelled the operation or if the user could not be prompted.
+pub fn password_with_confirmation(
+    prompt: impl Into<String>,
+    repeat: impl Into<String>,
+    error: impl Into<String>,
+) -> Result<String, dialoguer::Error> {
+    Password::with_theme(&InputTheme)
+        .with_prompt(prompt)
+        .with_confirmation(repeat, error)
+        .interact()
+}
+
+/// Prompts the user to select an option.
+///
+/// Arguments:
+/// * `prompt` - The message to prompt the user with.
+/// * `options` - The options to give the user for selection.
+///
+/// Returns:
+/// * `Ok(usize)` - The index of the option selected by the user.
+/// * `Err(Error)` - If the user cancelled the operation or if the user could not be prompted.
+pub fn select(
+    prompt: impl Into<String>,
+    options: impl IntoIterator<Item = impl ToString>,
+) -> Result<usize, dialoguer::Error> {
+    Select::with_theme(&InputTheme)
+        .with_prompt(prompt)
+        .items(options)
+        .interact()
+}
+
+/// Prompts the user to select an option with an option selected by default.
+///
+/// Arguments:
+/// * `prompt` - The message to prompt the user with.
+/// * `options` - The options to give the user for selection.
+/// * `default` - The index of the default option.
+///
+/// Returns:
+/// * `Ok(usize)` - The index of the option selected by the user.
+/// * `Err(Error)` - If the user cancelled the operation or if the user could not be prompted.
+pub fn select_with_default(
+    prompt: impl Into<String>,
+    options: impl IntoIterator<Item = impl ToString>,
+    default: usize,
+) -> Result<usize, dialoguer::Error> {
+    Select::with_theme(&InputTheme)
+        .with_prompt(prompt)
+        .items(options)
+        .default(default)
+        .interact()
+}
+
+/// Prompts the user to select an option with an option selected by default, without reporting the
+/// selection.
+///
+/// Arguments:
+/// * `prompt` - The message to prompt the user with.
+/// * `options` - The options to give the user for selection.
+/// * `default` - The index of the default option.
+///
+/// Returns:
+/// * `Ok(usize)` - The index of the option selected by the user.
+/// * `Err(Error)` - If the user cancelled the operation or if the user could not be prompted.
+pub fn select_with_default_without_report(
+    prompt: impl Into<String>,
+    options: impl IntoIterator<Item = impl ToString>,
+    default: usize,
+) -> Result<usize, dialoguer::Error> {
+    Select::with_theme(&InputTheme)
+        .with_prompt(prompt)
+        .items(options)
+        .default(default)
+        .report(false)
+        .interact()
 }
