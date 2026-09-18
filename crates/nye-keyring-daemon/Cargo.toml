@@ -1,0 +1,18 @@
+[package]
+name = "nye-keyring-daemon"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { version = "1.0.104", features = ["backtrace"] }
+chrono = { version = "0.4.45", features = ["serde"] }
+clap = { version = "4.6.7", features = ["derive", "env", "wrap_help"] }
+colored = "3.1.1"
+hex = "0.4.3"
+nye-environment = { version = "0.1.0", path = "../nye-environment" }
+nye-keyring-daemon-protocol = { version = "0.1.0", path = "../nye-keyring-daemon-protocol" }
+serde = { version = "1.0.229", features = ["derive"] }
+sha2 = "0.11.0"
+tokio = { version = "1.53.1", features = ["rt", "rt-multi-thread", "macros", "net", "fs"] }
+toml = "1.1.6"
+users = "0.11.0"

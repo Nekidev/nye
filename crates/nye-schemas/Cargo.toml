@@ -1,0 +1,11 @@
+[package]
+name = "nye-schemas"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { version = "1.0.104", features = ["backtrace"] }
+path-clean = "1.0.1"
+regex = "1.13.1"
+serde = "1.0.229"
+toasty = "0.10.0"

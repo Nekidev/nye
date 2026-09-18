@@ -1,0 +1,9 @@
+[package]
+name = "nye-validation"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.104"
+path-clean = "1.0.1"
+regex = "1.13.1"

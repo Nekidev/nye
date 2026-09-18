@@ -1,0 +1,8 @@
+[package]
+name = "nye-utils"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { version = "1.0.104", features = ["backtrace"] }
+users = "0.11.0"

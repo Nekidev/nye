@@ -1,0 +1,13 @@
+[package]
+name = "nye-projects"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.104"
+nye-schemas = { version = "0.1.0", path = "../nye-schemas" }
+nye-validation = { version = "0.1.0", path = "../nye-validation" }
+regex = "1.13.1"
+serde = { version = "1.0.229", features = ["derive"] }
+tokio = { version = "1.53.1", features = ["fs"] }
+toml = "1.1.6"

@@ -1,0 +1,14 @@
+[package]
+name = "nye-packages"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { version = "1.0.104", features = ["backtrace"] }
+async_zip = { version = "0.0.19", features = ["tokio"] }
+nye-schemas = { version = "0.1.0", path = "../nye-schemas" }
+nye-validation = { version = "0.1.0", path = "../nye-validation" }
+serde = { version = "1.0.229", features = ["derive"] }
+tokio = { version = "1.53.1", features = ["fs"] }
+tokio-util = { version = "0.7.19", features = ["compat"] }
+toml = "1.1.6"
