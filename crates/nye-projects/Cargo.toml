@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1.0.104"
+dedent = "0.1.1"
 nye-schemas = { version = "0.1.0", path = "../nye-schemas" }
 nye-validation = { version = "0.1.0", path = "../nye-validation" }
 regex = "1.13.1"

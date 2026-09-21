@@ -3778,6 +3778,7 @@ name = "nye-projects"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "dedent",
  "nye-schemas",
  "nye-validation",
  "regex",

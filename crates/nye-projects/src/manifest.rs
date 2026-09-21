@@ -1,6 +1,8 @@
+//! Nye project manifests.
+
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use anyhow::Context;
@@ -10,11 +12,18 @@ use nye_validation::Validate;
 use regex::Regex;
 use serde::de::Visitor;
 use serde::{Deserialize, Serialize};
+use tokio::fs;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TargetOrShared {
     Shared,
     Target(Target),
+}
+
+impl From<Target> for TargetOrShared {
+    fn from(value: Target) -> Self {
+        Self::Target(value)
+    }
 }
 
 impl Display for TargetOrShared {
@@ -144,7 +153,8 @@ pub struct ManifestTarget {
 
 impl Validate for ManifestTarget {
     fn validate(&self) -> anyhow::Result<()> {
-        nye_validation::is_safe_path(&self.source).context("The target's source path was not safe.")?;
+        nye_validation::is_safe_path(&self.source)
+            .context("The target's source path was not safe.")?;
 
         Ok(())
     }
@@ -408,4 +418,18 @@ impl Validate for ManifestConsumesEnv {
 
         Ok(())
     }
+}
+
+/// Loads the manifest from a file.
+///
+/// Arguments:
+/// * `path` - The file path of the manifest file.
+pub async fn load(path: impl AsRef<Path>) -> anyhow::Result<Manifest> {
+    let contents = fs::read(path)
+        .await
+        .context("Could not read manifest file.")?;
+    let manifest = toml::from_slice(&contents)
+        .context("Could not deserialize the manifest file's contents.")?;
+
+    Ok(manifest)
 }
