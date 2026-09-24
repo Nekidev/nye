@@ -1,143 +1,4 @@
-//! Encoding and decoding of package file contents.
-//!
-//! # Format
-//!
-//! The format is extremely simple. It contains a directory at the top of the file that defines the
-//! metadata for the rest of the file, it has no compression support (it can be added on top of it),
-//! and only carries the metadata needed by nye.
-//!
-//! The layout is the following:
-//!
-//! ```txt
-//! +-------------------+
-//! | File Signature    |
-//! +-------------------+
-//! | Directory         |
-//! | - File 1 Metadata |
-//! | - File 2 Metadata |
-//! | ...               |
-//! +-------------------+
-//! | Manifest          |
-//! +-------------------+
-//! | File Contents     |
-//! | - File 1 Contents |
-//! | - File 2 Contents |
-//! | ...               |
-//! +-------------------+
-//! ```
-//!
-//! All numbers in the file are stored as big endians.
-//!
-//! ## File Signature
-//!
-//! Each nye package file starts with the folllowing four bytes:
-//!
-//! ```txt
-//! 110 121 101 0
-//! ```
-//!
-//! Converted to ASCII, it reads "nye", then a `0` for the file format version.
-//!
-//! If the version is not `0`, make sure to fail parsing the file or implement support for future
-//! versions.
-//!
-//! ## Directory
-//!
-//! The directory contains all the metadata for the files inside the package file.
-//!
-//! It begins with 2 bytes, representing the amount of entries in the directory. It DOES NOT count
-//! the manifest, meaning the package file will exactly one manifest file + the amount of files
-//! these 2 bytes specify.
-//!
-//! Then, a `u64` specifying the manifest file's size. The manifest file always appears first in
-//! the package file for easier analysis of package files.
-//!
-//! At the end of it, the entries' metadata.
-//!
-//! ### File Metadata
-//!
-//! Each file entry's metadata consists of the following:
-//!
-//! * `size` (`u64`): The size of the file, in bytes.
-//! * `type` (`u8`): The file type.
-//!     * `0` - A binary file (`bin/`).
-//!     * `1` - A library file (`lib/`).
-//!     * `2` - An editable text configuration file (`etc/`).
-//!     * `3` - A variable data file (`var/`).
-//! * `name` (`segments`): The file's name, using nye's segment encoding.
-//!
-//! #### Segments Encoding
-//!
-//! Nye uses a custom file path encoding to reduce the amount of invalid states representable.
-//!
-//! When writing normal file paths, there's multiple undesireable states from the package manager's
-//! point of view. `.` segments, `..` segments, double slashes, backslashes, absolute paths, invalid
-//! characters, and paths with trailing slashes are just some examples. Nye's segment encoding makes
-//! many of those undesireable states not representable, which reduces the amount of additional
-//! validation requires and improves the safety of the format.
-//!
-//! Segment encoding follows the following layout:
-//!
-//! ```text
-//! +--------------------------+
-//! | u8: Segment count - 1    |
-//! +--------------------------+
-//! | u8: Segment 1 length - 1 |
-//! |     Segment 1 bytes      |
-//! +--------------------------+
-//! | u8: Segment 2 length - 1 |
-//! |     Segment 2 bytes      |
-//! +--------------------------+
-//! | ...                      |
-//! +--------------------------+
-//! ```
-//!
-//! Segment bytes use the following alphabet:
-//!
-//! * a-z: 0-25
-//! * A-Z: 26-51
-//! * 0-9: 52-61
-//! * `-`: 62
-//! * `_`: 63
-//! * `.`: 64
-//! * `,`: 65
-//! * `@`: 66
-//!
-//! When converted back to a file path, segments are decoded and joined using `/`.
-//!
-//! The following segments are not allowed:
-//!
-//! * `.`
-//! * `..`
-//!
-//! ### File Contents
-//!
-//! The first bytes after the directory are the manifest. The size of this section will be
-//! according to the manifest file size defined in the directory.
-//!
-//! After the manifest, file contents will be defined sequentially. You can calculate the offset of
-//! each file using each file's size. Files go in order, meaning the first file to appear in the
-//! directory will be the first file to have its contents defined.
-//! 
-//! For example, given the following example package file data:
-//! 
-//! ```text
-//! 3 bytes of nye
-//! 1 byte of file format version
-//! 2 bytes of the amount of entries in the directory
-//! 8 bytes of the manifest section's size
-//!     8 bytes of entry 1 size
-//!     1 byte of entry 1 type
-//!     1 byte of entry 1 name segment count
-//!         1 byte of segment length
-//!         X bytes of segment bytes
-//!         ... do once per segment
-//!     ... do once per entry
-//! X bytes of manifest data
-//! X bytes of entry 1 data
-//! X bytes of entry 2 data
-//! ...
-//! ```
+//! Parsing for package file contents.
 
 use std::collections::HashMap;
 
@@ -147,19 +8,16 @@ use tokio::io::AsyncReadExt;
 use crate::format::reading::{NyeFileHeader, Readable};
 use crate::format::safety::Safety;
 use crate::format::{
-    NyeFileDirectory, NyeFileEntry, NyeFileEntryKind, NyeFileSignature, Segment, Segments,
+    ALPHABET, NyeFileDirectory, NyeFileEntry, NyeFileEntryKind, NyeFileSignature, Segment, Segments,
 };
 
-/// Nye's segments type alphabet.
-pub const ALPHABET: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.,@";
-
-/// Implemented by encodeable/decodeable structs, like [`Segments`] and [`NyeFileDirectory`].
-pub trait Encodeable: Sized {
+/// Implemented by decodeable structs, like [`Segments`] and [`NyeFileDirectory`].
+pub trait Decodeable: Sized {
     /// Parses and returns itself.
     ///
     /// This function leaves the file cursor at the first byte after the parsed bytes.
     #[allow(async_fn_in_trait)]
-    async fn parse<F>(file: &mut F, safety: &Safety) -> anyhow::Result<Self>
+    async fn decode<F>(file: &mut F, safety: &Safety) -> anyhow::Result<Self>
     where
         F: Readable;
 
@@ -167,16 +25,16 @@ pub trait Encodeable: Sized {
     fn size(&self) -> u64;
 }
 
-impl Encodeable for NyeFileHeader {
+impl Decodeable for NyeFileHeader {
     fn size(&self) -> u64 {
         self.signature.size() + self.directory.size() + self.directory.manifest_size
     }
 
-    async fn parse<F>(file: &mut F, safety: &Safety) -> anyhow::Result<Self>
+    async fn decode<F>(file: &mut F, safety: &Safety) -> anyhow::Result<Self>
     where
         F: Readable,
     {
-        let signature = NyeFileSignature::parse(file, safety)
+        let signature = NyeFileSignature::decode(file, safety)
             .await
             .context("Could not parse the package file's signature.")?;
 
@@ -187,7 +45,7 @@ impl Encodeable for NyeFileHeader {
             );
         }
 
-        let directory = NyeFileDirectory::parse(file, safety)
+        let directory = NyeFileDirectory::decode(file, safety)
             .await
             .context("Could not parse the package file's directory.")?;
 
@@ -206,12 +64,12 @@ impl Encodeable for NyeFileHeader {
     }
 }
 
-impl Encodeable for NyeFileSignature {
+impl Decodeable for NyeFileSignature {
     fn size(&self) -> u64 {
         4
     }
 
-    async fn parse<F>(file: &mut F, _safety: &Safety) -> anyhow::Result<Self>
+    async fn decode<F>(file: &mut F, _safety: &Safety) -> anyhow::Result<Self>
     where
         F: Readable,
     {
@@ -230,7 +88,7 @@ impl Encodeable for NyeFileSignature {
     }
 }
 
-impl Encodeable for NyeFileDirectory {
+impl Decodeable for NyeFileDirectory {
     fn size(&self) -> u64 {
         // Start with the manifest's size (8 bytes) and the amount of entries accounted for (2
         // bytes).
@@ -243,7 +101,7 @@ impl Encodeable for NyeFileDirectory {
         size
     }
 
-    async fn parse<F>(file: &mut F, safety: &Safety) -> anyhow::Result<Self>
+    async fn decode<F>(file: &mut F, safety: &Safety) -> anyhow::Result<Self>
     where
         F: Readable,
     {
@@ -279,7 +137,7 @@ impl Encodeable for NyeFileDirectory {
         };
 
         for i in 0..entries_count {
-            let entry = NyeFileEntry::parse(file, safety)
+            let entry = NyeFileEntry::decode(file, safety)
                 .await
                 .context("An entry in the directory was invalid.")?;
             let kind = entry.kind;
@@ -303,13 +161,13 @@ impl Encodeable for NyeFileDirectory {
     }
 }
 
-impl Encodeable for NyeFileEntry {
+impl Decodeable for NyeFileEntry {
     fn size(&self) -> u64 {
         // 8 bytes for the file size, 1 byte for the file type, and the name's size.
         8 + self.kind.size() + self.name.size()
     }
 
-    async fn parse<F>(file: &mut F, safety: &Safety) -> anyhow::Result<Self>
+    async fn decode<F>(file: &mut F, safety: &Safety) -> anyhow::Result<Self>
     where
         F: Readable,
     {
@@ -317,10 +175,10 @@ impl Encodeable for NyeFileEntry {
             .read_u64()
             .await
             .context("Could not read file entry size.")?;
-        let kind = NyeFileEntryKind::parse(file, safety)
+        let kind = NyeFileEntryKind::decode(file, safety)
             .await
             .context("Could not read file entry kind.")?;
-        let name = Segments::parse(file, safety)
+        let name = Segments::decode(file, safety)
             .await
             .context("A file's name was invalid.")?;
 
@@ -336,12 +194,12 @@ impl Encodeable for NyeFileEntry {
     }
 }
 
-impl Encodeable for NyeFileEntryKind {
+impl Decodeable for NyeFileEntryKind {
     fn size(&self) -> u64 {
         1
     }
 
-    async fn parse<F>(file: &mut F, _safety: &Safety) -> anyhow::Result<Self>
+    async fn decode<F>(file: &mut F, _safety: &Safety) -> anyhow::Result<Self>
     where
         F: Readable,
     {
@@ -360,7 +218,7 @@ impl Encodeable for NyeFileEntryKind {
     }
 }
 
-impl Encodeable for Segments {
+impl Decodeable for Segments {
     fn size(&self) -> u64 {
         // 1 byte for the amount of segments + the size of each segment.
         let mut size = 1;
@@ -372,7 +230,7 @@ impl Encodeable for Segments {
         size
     }
 
-    async fn parse<F>(file: &mut F, safety: &Safety) -> anyhow::Result<Self>
+    async fn decode<F>(file: &mut F, safety: &Safety) -> anyhow::Result<Self>
     where
         F: Readable,
     {
@@ -384,7 +242,7 @@ impl Encodeable for Segments {
         let mut segments_len = 0;
 
         for _ in 0..=segments_count_minus_one {
-            let segment = Segment::parse(file, safety)
+            let segment = Segment::decode(file, safety)
                 .await
                 .context("A segment was invalid.")?;
 
@@ -404,13 +262,13 @@ impl Encodeable for Segments {
     }
 }
 
-impl Encodeable for Segment {
+impl Decodeable for Segment {
     fn size(&self) -> u64 {
         // The amount of bytes plus the byte indicating the amount of bytes.
         self.0.len() as u64 + 1
     }
 
-    async fn parse<F>(file: &mut F, _safety: &Safety) -> anyhow::Result<Self>
+    async fn decode<F>(file: &mut F, _safety: &Safety) -> anyhow::Result<Self>
     where
         F: Readable,
     {

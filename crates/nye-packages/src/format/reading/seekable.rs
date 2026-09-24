@@ -92,11 +92,11 @@ use std::io::SeekFrom;
 use anyhow::Context;
 use tokio::io::AsyncSeekExt;
 
-use crate::Manifest;
-use crate::format::encoding::Encodeable;
+use crate::format::reading::decoding::Decodeable;
 use crate::format::reading::{NyeFileHeader, NyeFileReadableEntry, ReadableSeekable};
 use crate::format::safety::Safety;
 use crate::format::{NyeFileDirectory, NyeFileEntry, NyeFileEntryKind, NyeFileSignature, Segments};
+use crate::manifest::Manifest;
 
 /// A nye package file reader.
 #[derive(Debug)]
@@ -129,7 +129,7 @@ where
     where
         F: ReadableSeekable,
     {
-        let header = NyeFileHeader::parse(&mut file, &safety)
+        let header = NyeFileHeader::decode(&mut file, &safety)
             .await
             .context("Could not parse package file's header.")?;
 

@@ -61,11 +61,13 @@ use std::pin::Pin;
 
 use tokio::io::{AsyncRead, AsyncSeek, ReadBuf};
 
-use crate::Manifest;
 use crate::format::{NyeFileDirectory, NyeFileEntryKind, NyeFileSignature, Segments};
+use crate::manifest::Manifest;
 
+pub mod decoding;
 pub mod seekable;
 pub mod streamable;
+pub mod validation;
 
 pub use seekable::NyeFileSeekableReader;
 pub use streamable::NyeFileStreamableReader;
@@ -79,7 +81,7 @@ pub trait ReadableSeekable: Readable + AsyncSeek {}
 impl<T> ReadableSeekable for T where T: Readable + AsyncSeek {}
 
 /// Utility to parse the signature, directory, and manifest sections of a package file using
-/// [`Encodeable`](super::Encodeable).
+/// [`Decodeable`](decoding::Decodeable).
 pub(super) struct NyeFileHeader {
     pub signature: NyeFileSignature,
     pub directory: NyeFileDirectory,

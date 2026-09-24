@@ -83,11 +83,11 @@ use std::pin::Pin;
 use anyhow::Context;
 use tokio::io::{AsyncRead, AsyncReadExt, ReadBuf};
 
-use crate::Manifest;
-use crate::format::encoding::Encodeable;
+use crate::format::reading::decoding::Decodeable;
 use crate::format::reading::{NyeFileHeader, NyeFileReadableEntry, Readable};
 use crate::format::safety::Safety;
 use crate::format::{NyeFileDirectory, NyeFileEntry, NyeFileEntryKind, NyeFileSignature, Segments};
+use crate::manifest::Manifest;
 
 /// A wrapper over a [`Readable`] object that keeps track of the cursor's position.
 #[derive(Debug)]
@@ -189,7 +189,7 @@ where
     {
         let mut file = ReadWithMeta::new(file);
 
-        let header = NyeFileHeader::parse(&mut file, &safety)
+        let header = NyeFileHeader::decode(&mut file, &safety)
             .await
             .context("Could not parse package file's header.")?;
 
@@ -227,7 +227,7 @@ where
     /// Returns the metadata about each file, in order.
     ///
     /// These files don't contain the manifest. To read the manifest, use
-    /// [`NyeFileSeekableReader::manifest()`] instead.
+    /// [`NyeFileStreamableReader::manifest()`] instead.
     pub fn entries(&self) -> &[NyeFileEntry] {
         &self.directory.entries
     }

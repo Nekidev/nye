@@ -11,7 +11,7 @@ use regex::Regex;
 use serde::de::Visitor;
 use serde::{Deserialize, Serialize};
 
-/// A semantic version v2.0.0, as defined by https://semver.org/.
+/// A semantic version v2.0.0, as defined by <https://semver.org/>.
 ///
 /// Parse from a string using [`FromStr`].
 #[derive(Debug, Clone, PartialEq, Eq)]

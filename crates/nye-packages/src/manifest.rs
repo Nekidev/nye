@@ -1,15 +1,66 @@
+//! Package manifest schemas. A package file's "configuration".
+//!
+//! # Comparison with Project Manifests
+//!
+//! This manifest type reensembles package project manifests. However, these are aimed at
+//! explicitness and single-target configurations.
+//!
+//! For example, a project manifest has `targets.*` configurations and things like `shared`, while
+//! package manifests have a single `package.target` instead. Artifacts exposed under multiple
+//! links are expanded into one item per link.
+//! 
+//! Package manifests are not meant to be written by humans. They may be read by humans, though, so
+//! they're serialized into prettified TOML when creating package files. They are held in a special
+//! section within a package file, not as a regular entry.
+//! 
+//! # Learn by Example
+//! 
+//! As stated above, package manifests are aimed at a single target, which is specified in the
+//! `[package]` section.
+//! 
+//! ```toml
+//! version = 1
+//! 
+//! [package]
+//! name = "example"
+//! version = "1.1.1"
+//! target = "linux-x86_64"
+//! ```
+//! 
+//! Exposed and consumed resources are defined in a similar way to in project manifests.
+//! 
+//! ```toml
+//! [exposes.bin]
+//! link = "example"
+//! path = "example"
+//! 
+//! [exposes.lib]
+//! link = "example.so"
+//! path = "example.so"
+//! ```
+//! 
+//! Unlike project manifests, multiple links cannot be defined as an array, and both `link` and
+//! `path` are required. Since package files are single-target, no `targets` field exists.
+
 use std::path::PathBuf;
 
 use nye_schemas::semver::Semver;
 use nye_schemas::targets::Target;
 use serde::{Deserialize, Serialize};
 
+/// A package's configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Manifest {
     /// The package's metadata.
     ///
     /// Contains information such as the project's name, version, and target.
     pub package: ManifestPackage,
+    /// The package's exposed artifacts.
+    #[serde(skip_serializing_if = "ManifestExposes::is_empty")]
+    pub exposes: ManifestExposes,
+    /// The package's consumed artifacts and configurations.
+    #[serde(skip_serializing_if = "ManifestConsumes::is_empty")]
+    pub consumes: ManifestConsumes,
 }
 
 /// A package's metadata.
@@ -29,7 +80,8 @@ pub struct ManifestPackage {
     pub target: Target,
 }
 
-#[derive(Clone, Serialize, Deserialize, Default)]
+/// Exposed artifacts and env vars by a package.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ManifestExposes {
     /// The package's exposed binaries.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -45,12 +97,15 @@ pub struct ManifestExposes {
 }
 
 impl ManifestExposes {
+    /// `true` when all [`ManifestExposes::bin`], [`ManifestExposes::lib`], and
+    /// [`ManifestExposes::env`] are empty.
     fn is_empty(&self) -> bool {
         self.bin.is_empty() && self.lib.is_empty() && self.env.is_empty()
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+/// An exposed artifact (binary, library, configuration file) by the package.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ManifestExposesArtifact {
     /// The name under which this artifact will be exposed.
     ///
@@ -83,7 +138,8 @@ pub struct ManifestExposesEnv {
     pub value: String,
 }
 
-#[derive(Clone, Serialize, Deserialize, Default)]
+/// A package's consumed environment variables.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ManifestConsumes {
     /// The consumed environment variables.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -96,7 +152,8 @@ impl ManifestConsumes {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+/// A consumed environment variable's configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ManifestConsumesEnv {
     /// An environment variable consumed from a single string.
     ///

@@ -5,6 +5,145 @@
 //!
 //! Nye package files use the `.nye` file extension.
 //!
+//! # Format
+//!
+//! The format is extremely simple. It contains a directory at the top of the file that defines the
+//! metadata for the rest of the file, it has no compression support (it can be added on top of it),
+//! and only carries the metadata needed by nye.
+//!
+//! The layout is the following:
+//!
+//! ```txt
+//! +-------------------+
+//! | File Signature    |
+//! +-------------------+
+//! | Directory         |
+//! | - File 1 Metadata |
+//! | - File 2 Metadata |
+//! | ...               |
+//! +-------------------+
+//! | Manifest          |
+//! +-------------------+
+//! | File Contents     |
+//! | - File 1 Contents |
+//! | - File 2 Contents |
+//! | ...               |
+//! +-------------------+
+//! ```
+//!
+//! All numbers in the file are stored as big endians.
+//!
+//! ## File Signature
+//!
+//! Each nye package file starts with the folllowing four bytes:
+//!
+//! ```txt
+//! 110 121 101 0
+//! ```
+//!
+//! Converted to ASCII, it reads "nye", then a `0` for the file format version.
+//!
+//! If the version is not `0`, make sure to fail parsing the file or implement support for future
+//! versions.
+//!
+//! ## Directory
+//!
+//! The directory contains all the metadata for the files inside the package file.
+//!
+//! It begins with 2 bytes, representing the amount of entries in the directory. It DOES NOT count
+//! the manifest, meaning the package file will exactly one manifest file + the amount of files
+//! these 2 bytes specify.
+//!
+//! Then, a `u64` specifying the manifest file's size. The manifest file always appears first in
+//! the package file for easier analysis of package files.
+//!
+//! At the end of it, the entries' metadata.
+//!
+//! ### File Metadata
+//!
+//! Each file entry's metadata consists of the following:
+//!
+//! * `size` (`u64`): The size of the file, in bytes.
+//! * `type` (`u8`): The file type.
+//!     * `0` - A binary file (`bin/`).
+//!     * `1` - A library file (`lib/`).
+//!     * `2` - An editable text configuration file (`etc/`).
+//!     * `3` - A variable data file (`var/`).
+//! * `name` (`segments`): The file's name, using nye's segment encoding.
+//!
+//! #### Segments Encoding
+//!
+//! Nye uses a custom file path encoding to reduce the amount of invalid states representable.
+//!
+//! When writing normal file paths, there's multiple undesireable states from the package manager's
+//! point of view. `.` segments, `..` segments, double slashes, backslashes, absolute paths, invalid
+//! characters, and paths with trailing slashes are just some examples. Nye's segment encoding makes
+//! many of those undesireable states not representable, which reduces the amount of additional
+//! validation requires and improves the safety of the format.
+//!
+//! Segment encoding follows the following layout:
+//!
+//! ```text
+//! +--------------------------+
+//! | u8: Segment count - 1    |
+//! +--------------------------+
+//! | u8: Segment 1 length - 1 |
+//! |     Segment 1 bytes      |
+//! +--------------------------+
+//! | u8: Segment 2 length - 1 |
+//! |     Segment 2 bytes      |
+//! +--------------------------+
+//! | ...                      |
+//! +--------------------------+
+//! ```
+//!
+//! Segment bytes use the following alphabet:
+//!
+//! * a-z: 0-25
+//! * A-Z: 26-51
+//! * 0-9: 52-61
+//! * `-`: 62
+//! * `_`: 63
+//! * `.`: 64
+//! * `,`: 65
+//! * `@`: 66
+//!
+//! When converted back to a file path, segments are decoded and joined using `/`.
+//!
+//! The following segments are not allowed:
+//!
+//! * `.`
+//! * `..`
+//!
+//! ### File Contents
+//!
+//! The first bytes after the directory are the manifest. The size of this section will be
+//! according to the manifest file size defined in the directory.
+//!
+//! After the manifest, file contents will be defined sequentially. You can calculate the offset of
+//! each file using each file's size. Files go in order, meaning the first file to appear in the
+//! directory will be the first file to have its contents defined.
+//!
+//! For example, given the following example package file data:
+//!
+//! ```text
+//! 3 bytes of nye
+//! 1 byte of file format version
+//! 2 bytes of the amount of entries in the directory
+//! 8 bytes of the manifest section's size
+//!     8 bytes of entry 1 size
+//!     1 byte of entry 1 type
+//!     1 byte of entry 1 name segment count
+//!         1 byte of segment length
+//!         X bytes of segment bytes
+//!         ... do once per segment
+//!     ... do once per entry
+//! X bytes of manifest data
+//! X bytes of entry 1 data
+//! X bytes of entry 2 data
+//! ...
+//! ```
+//!
 //! # In Rust
 //!
 //! This module provides a reader and a writer for package files, aiming at ergonomics and safety.
@@ -16,11 +155,14 @@ use std::fmt::{Debug, Display};
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use crate::format::encoding::{ALPHABET, Encodeable};
+use crate::format::reading::decoding::Decodeable;
 
-pub mod encoding;
 pub mod reading;
 pub mod safety;
+pub mod writing;
+
+/// Nye's segments type alphabet.
+pub const ALPHABET: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.,@";
 
 /// The signature section of a package file, containing the package file format version.
 #[derive(Debug, Clone, Copy)]
@@ -30,7 +172,7 @@ pub struct NyeFileSignature {
 }
 
 /// The directory section of a package file, containing manifest and entry metadata.
-/// 
+///
 /// This type also holds an index of (type, name) -> entry index for fast access by name.
 #[derive(Default, Debug, Clone)]
 pub struct NyeFileDirectory {
@@ -85,10 +227,28 @@ impl NyeFileDirectory {
             None
         }
     }
+
+    /// Returns a directory entry by its position in the directory.
+    pub fn get_entry_by_index(&self, index: usize) -> Option<&NyeFileEntry> {
+        self.entries.get(index)
+    }
+
+    /// Returns a directory entry by its file type and name.
+    /// 
+    /// Arguments:
+    /// * `kind` - The file kind. E.g. bin, lib.
+    /// * `path` - The file's path.
+    pub fn get_entry_by_path(&self, kind: NyeFileEntryKind, path: impl Into<Segments>) -> Option<&NyeFileEntry> {
+        if let Some(index) = self.index.get(&(kind, path.into())) {
+            self.entries.get(*index)
+        } else {
+            None
+        }
+    }
 }
 
 /// An individual entry's metadata.
-/// 
+///
 /// Defined in the directory section.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NyeFileEntry {
@@ -127,7 +287,7 @@ impl Display for NyeFileEntryKind {
 /// An array of segments.
 ///
 /// Manipulating these is easy. You can convert it to a [`String`] or [`PathBuf`] representation
-/// using [`Segments::to_string`], [`Segments::into`], and [`Segments::to_path_buf`].
+/// using [`Segments::to_string()`], [`Segments::into()`], and [`Segments::to_path_buf()`].
 ///
 /// To create a new [`Segments`] instance, parse a representable path using
 /// [`Segments::from_str()`].
@@ -162,6 +322,14 @@ impl FromStr for Segments {
         }
 
         Ok(Self(segments))
+    }
+}
+
+impl TryFrom<&str> for Segments {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Self::from_str(value)
     }
 }
 
