@@ -33,16 +33,16 @@
 //! To get the project the current working directory belongs to, use [`Project::get_current()`].
 //! It'll search for a project manifest file (`nye.toml`) in the current directory and every parent
 //! directory.
-//! 
+//!
 //! ```
 //! let project = match Project::get_current()? {
 //!     Some(project) => project,
 //!     None => anyhow::bail!("You're not inside a project!"),
 //! };
 //! ```
-//! 
+//!
 //! You can then access the following attributes of the project:
-//! 
+//!
 //! - [`Project::path`] - The project's root directory.
 //! - [`Project::manifest`] - The project manifest's contents.
 
@@ -54,6 +54,7 @@ use tokio::fs;
 
 pub mod builder;
 pub mod manifest;
+pub mod packaging;
 
 pub use builder::ProjectBuilder;
 pub use manifest::{
@@ -71,6 +72,14 @@ pub struct Project {
 }
 
 impl Project {
+    /// Build a new project.
+    ///
+    /// Arguments:
+    /// * `name` - The project's name.
+    pub fn build(name: impl Into<String>) -> anyhow::Result<ProjectBuilder> {
+        ProjectBuilder::new(name)
+    }
+
     /// Gets the project the current working directory belongs to, if any.
     ///
     /// Returns:

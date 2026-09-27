@@ -422,3 +422,9 @@ value = "$NYE_INSTALLATION/lib"
 [[consumes.env]]
 name = "EXPOSED_PATH"
 separator = ":"
+
+[[depends]]
+name = "redis"
+version = "8.0.0"
+targets = ["linux-x86_64"]
+features = [""]

@@ -1,19 +1,20 @@
 [workspace]
 resolver = "3"
 members = [
-  "crates/nye",
-  "crates/nye-environment",
-  "crates/nye-keyring-daemon",
-  "crates/nye-keyring-daemon-protocol",
-  "crates/nye-packages",
-  "crates/nye-projects",
-  "crates/nye-registry",
-  "crates/nye-registry-client",
-  "crates/nye-registry-client-http",
-  "crates/nye-registry-client-local",
-  "crates/nye-schemas",
-  "crates/nye-utils",
-  "crates/nye-validation",
+    "crates/nye",
+    "crates/nye-environment",
+    "crates/nye-keyring-daemon",
+    "crates/nye-keyring-daemon-protocol",
+    "crates/nye-namespaces",
+    "crates/nye-packages",
+    "crates/nye-projects",
+    "crates/nye-registry",
+    "crates/nye-registry-client",
+    "crates/nye-registry-client-http",
+    "crates/nye-registry-client-local",
+    "crates/nye-schemas",
+    "crates/nye-utils",
+    "crates/nye-validation",
 ]
 
 [profile.release]

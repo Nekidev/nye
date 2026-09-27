@@ -2,7 +2,7 @@
 name = "nye"
 version = "0.1.0"
 edition = "2024"
-license = "MIT"
+license = "GPL-3.0"
 description = "Nyeki's package manager."
 default-run = "nye"
 
@@ -36,6 +36,8 @@ jiff = { version = "0.2.35", features = ["static-tz"] }
 linux-keyutils = { version = "0.2.5", features = ["std"] }
 nanoid = "0.5.0"
 nye-environment = { version = "0.1.0", path = "../nye-environment" }
+nye-packages = { version = "0.1.0", path = "../nye-packages" }
+nye-projects = { version = "0.1.0", path = "../nye-projects" }
 nye-schemas = { version = "0.1.0", path = "../nye-schemas" }
 nye-utils = { version = "0.1.0", path = "../nye-utils" }
 nye-validation = { version = "0.1.0", path = "../nye-validation" }

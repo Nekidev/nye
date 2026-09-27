@@ -9,8 +9,11 @@
 //!
 //! See the [`Safety`] type's documentation to see what does each field do.
 
+use serde::{Deserialize, Serialize};
+
 /// Safety rules for when reading untrusted package files.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct Safety {
     /// The max amount of entries allowed.
     pub max_files: u16,

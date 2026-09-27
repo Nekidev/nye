@@ -149,6 +149,9 @@
 //! This module provides a reader and a writer for package files, aiming at ergonomics and safety.
 //! Safety is in multiple cases up to you, so there's configurable safety rules for you to use
 //! according to your program's needs.
+//!
+//! This module is divided into two submodules: [`reading`] and [`writing`]. You can guess what
+//! each is for.
 
 use std::collections::HashMap;
 use std::fmt::{Debug, Display};
@@ -158,7 +161,6 @@ use std::str::FromStr;
 use crate::format::reading::decoding::Decodeable;
 
 pub mod reading;
-pub mod safety;
 pub mod writing;
 
 /// Nye's segments type alphabet.
@@ -234,11 +236,15 @@ impl NyeFileDirectory {
     }
 
     /// Returns a directory entry by its file type and name.
-    /// 
+    ///
     /// Arguments:
     /// * `kind` - The file kind. E.g. bin, lib.
     /// * `path` - The file's path.
-    pub fn get_entry_by_path(&self, kind: NyeFileEntryKind, path: impl Into<Segments>) -> Option<&NyeFileEntry> {
+    pub fn get_entry_by_path(
+        &self,
+        kind: NyeFileEntryKind,
+        path: impl Into<Segments>,
+    ) -> Option<&NyeFileEntry> {
         if let Some(index) = self.index.get(&(kind, path.into())) {
             self.entries.get(*index)
         } else {
@@ -330,6 +336,22 @@ impl TryFrom<&str> for Segments {
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         Self::from_str(value)
+    }
+}
+
+impl TryFrom<&String> for Segments {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &String) -> Result<Self, Self::Error> {
+        Self::from_str(value.as_str())
+    }
+}
+
+impl TryFrom<String> for Segments {
+    type Error = anyhow::Error;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::from_str(&value)
     }
 }
 

@@ -1,14 +1,21 @@
 //! Validate a package file's manifest against the file's contents.
 
+use std::collections::HashSet;
 use std::str::FromStr;
 
 use anyhow::Context;
 use nye_schemas::targets::Target;
 
-use crate::format::safety::Safety;
+use crate::format::reading::safety::Safety;
 use crate::format::{NyeFileDirectory, NyeFileEntryKind, Segments};
-use crate::manifest::{Manifest, ManifestExposesArtifact, ManifestExposesEnv};
+use crate::manifest::{Manifest, ManifestConsumesEnv, ManifestExposesArtifact, ManifestExposesEnv};
 
+/// Validates a package file manifest against a package file directory.
+///
+/// Arguments:
+/// * `manifest` - The package file's manifest.
+/// * `directory` - The package file's directory.
+/// * `safety` - The safety rules and limits.
 pub fn validate(
     manifest: &Manifest,
     directory: &NyeFileDirectory,
@@ -18,6 +25,8 @@ pub fn validate(
         .context("The package's metadata was incorrectly configured.")?;
     validate_package_exposes(manifest, directory, safety)
         .context("The package's exposed artifacts were incorrectly configured.")?;
+    validate_package_consumes(manifest, safety)
+        .context("The package's consumed artifacts were incorrectly configured.")?;
 
     Ok(())
 }
@@ -26,7 +35,6 @@ fn validate_package_meta(manifest: &Manifest, safety: &Safety) -> anyhow::Result
     if manifest.package.name.len() as u64 > safety.max_package_name_size {
         anyhow::bail!("The package's name was longer than {} bytes.", safety.max_package_name_size);
     }
-
     if manifest.package.name.is_empty() {
         anyhow::bail!("The package had no name (empty string).");
     }
@@ -62,8 +70,6 @@ fn validate_package_exposes(
     directory: &NyeFileDirectory,
     safety: &Safety,
 ) -> anyhow::Result<()> {
-    // TODO: Validate artifact name uniqueness per artifact type.
-
     if manifest.exposes.bin.len() as u64 > safety.max_exposed_bins {
         anyhow::bail!("The manifest exposed more binaries than allowed.");
     }
@@ -74,17 +80,34 @@ fn validate_package_exposes(
         anyhow::bail!("The manifest exposed more environment variables than allowed.");
     }
 
-    for bin in &manifest.exposes.bin {
-        validate_exposed_artifact(bin, NyeFileEntryKind::Bin, directory, safety)
-            .context("An exposed binary was misconfigured.")?;
-    }
-    for lib in &manifest.exposes.lib {
-        validate_exposed_artifact(lib, NyeFileEntryKind::Lib, directory, safety)
-            .context("An exposed library was misconfigured.")?;
-    }
+    validate_exposed_artifacts(&manifest.exposes.bin, NyeFileEntryKind::Bin, directory, safety)
+        .context("One or more exposed binaries were misconfigured.")?;
+    validate_exposed_artifacts(&manifest.exposes.lib, NyeFileEntryKind::Lib, directory, safety)
+        .context("One or more exposed binaries were misconfigured.")?;
+
     for var in &manifest.exposes.env {
         validate_exposed_var(var, safety)
             .context("An exposed environment variable was misconfigured.")?;
+    }
+
+    Ok(())
+}
+
+fn validate_exposed_artifacts(
+    artifacts: &[ManifestExposesArtifact],
+    artifact_kind: NyeFileEntryKind,
+    directory: &NyeFileDirectory,
+    safety: &Safety,
+) -> anyhow::Result<()> {
+    let mut names = HashSet::with_capacity(artifacts.len());
+    for artifact in artifacts {
+        validate_exposed_artifact(artifact, artifact_kind, directory, safety)
+            .context("An exposed artifact was misconfigured.")?;
+
+        let is_new = names.insert(&artifact.link);
+        if !is_new {
+            anyhow::bail!("The {artifact_kind} {} is declared twice.", artifact.link);
+        }
     }
 
     Ok(())
@@ -150,6 +173,42 @@ fn validate_exposed_var(var: &ManifestExposesEnv, safety: &Safety) -> anyhow::Re
 
     nye_validation::is_env_var_name(&var.name)
         .context("The exposed environment variable's name was not valid.")?;
+
+    Ok(())
+}
+
+fn validate_package_consumes(manifest: &Manifest, safety: &Safety) -> anyhow::Result<()> {
+    for var in &manifest.consumes.env {
+        if var.name().is_empty() {
+            anyhow::bail!("A consumed environment variable's name was empty.");
+        }
+        if var.name().len() as u64 > safety.max_var_name_size {
+            anyhow::bail!("A consumed environment varibale's name was longer than allowed.");
+        }
+        nye_validation::is_env_var_name(var.name())
+            .context("A consumed environment variable did not have a valid name.")?;
+
+        if var.name().to_ascii_lowercase().starts_with("nye") {
+            anyhow::bail!("Consumed environment variable names cannot start with NYE.");
+        }
+
+        match &var {
+            ManifestConsumesEnv::List { name, separator } => {
+                if separator.len() as u64 > safety.max_var_separator_size {
+                    anyhow::bail!(
+                        "A consumed environment variable, {name}, had its separator longer than allowed."
+                    );
+                }
+            }
+            ManifestConsumesEnv::Value { name, value } => {
+                if value.len() as u64 > safety.max_var_value_size {
+                    anyhow::bail!(
+                        "A consumed environment variable, {name}, had its value longer than allowed."
+                    );
+                }
+            }
+        }
+    }
 
     Ok(())
 }

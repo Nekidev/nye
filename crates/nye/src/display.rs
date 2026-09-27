@@ -22,7 +22,7 @@ pub fn spinner(message: impl Into<String>) -> ProgressBar {
         .with_message(message.into())
         .with_style(
             ProgressStyle::default_spinner()
-                .tick_strings(&["[\\]", "[|]", "[/]", "[-]", "OK "])
+                .tick_strings(&["\\", "|", "/", "-", "✓"])
                 .template("{spinner:.cyan} {msg}")
                 .unwrap(),
         );
@@ -114,7 +114,7 @@ impl Theme for InputTheme {
         prompt: &str,
         _default: Option<&str>,
     ) -> std::fmt::Result {
-        let prefix = ">>>".purple();
+        let prefix = ">".purple();
 
         write!(f, "{prefix} {prompt}")
     }
@@ -125,13 +125,13 @@ impl Theme for InputTheme {
         prompt: &str,
         sel: &str,
     ) -> std::fmt::Result {
-        let prefix = ">>>".purple();
+        let prefix = ">".purple();
 
         write!(f, "{prefix} {prompt}{sel}")
     }
 
     fn format_select_prompt(&self, f: &mut dyn std::fmt::Write, prompt: &str) -> std::fmt::Result {
-        let prefix = ">>>".purple();
+        let prefix = ">".purple();
 
         write!(f, "{prefix} {prompt}")
     }
@@ -143,9 +143,9 @@ impl Theme for InputTheme {
         active: bool,
     ) -> std::fmt::Result {
         if active {
-            write!(f, "{}", format!("  * {text}").purple())
+            write!(f, "{}", format!("* {text}").purple())
         } else {
-            write!(f, "    {text}")
+            write!(f, "  {text}")
         }
     }
 
@@ -155,7 +155,7 @@ impl Theme for InputTheme {
         prompt: &str,
         sel: &str,
     ) -> std::fmt::Result {
-        let prefix = ">>>".purple();
+        let prefix = ">".purple();
 
         write!(f, "{prefix} {prompt}{}", sel.purple())
     }

@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use anyhow::Context;
 use tokio::io::AsyncReadExt;
 
+use crate::format::reading::safety::Safety;
 use crate::format::reading::{NyeFileHeader, Readable};
-use crate::format::safety::Safety;
 use crate::format::{
     ALPHABET, NyeFileDirectory, NyeFileEntry, NyeFileEntryKind, NyeFileSignature, Segment, Segments,
 };

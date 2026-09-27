@@ -50,7 +50,7 @@
 //!
 //! Reading is done in an iterator style, calling [`NyeFileStreamableReader::get_next_entry()`].
 //!
-//! [`Safety`]: super::safety::Safety
+//! [`Safety`]: safety::Safety
 //! [`Safety::default()`]: super::safety::Safety::default
 //! [`Segments::from_str`]: std::str::FromStr::from_str
 
@@ -68,6 +68,7 @@ pub mod decoding;
 pub mod seekable;
 pub mod streamable;
 pub mod validation;
+pub mod safety;
 
 pub use seekable::NyeFileSeekableReader;
 pub use streamable::NyeFileStreamableReader;

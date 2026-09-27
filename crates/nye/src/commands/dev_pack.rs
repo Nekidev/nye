@@ -1,79 +1,38 @@
 use anyhow::Context as AnyhowContext;
 use colored::Colorize;
+use nye_projects::{Project, TargetOrShared};
+use nye_schemas::targets::Target;
 use tokio::fs;
 
 use crate::args::{Args, DevSubcommandPackSubcommandArgs};
 use crate::display;
-use crate::projects::TargetOrShared;
-use crate::projects::actions::package;
-use crate::projects::context::Context;
 
 pub async fn run(_args: &Args, cmd: &DevSubcommandPackSubcommandArgs) -> anyhow::Result<()> {
-    let ctx = Context::get_current()
+    let project = Project::get_current()
         .await
-        .context("Could not get current project context. Are you in a project's directory?")?;
+        .context("Could not get current project context.")?
+        .context("No project was found in the current directory nor any of its parents.")?;
 
-    for target in &cmd.targets {
-        if !ctx
-            .manifest
-            .targets
-            .contains_key(&TargetOrShared::Target(*target))
-        {
-            anyhow::bail!(
-                "The target `{target}` was passed to the pack command, but that target is not configured in the project's nye.toml manifest."
-            );
-        }
-
-        if !target.is_supported() {
-            anyhow::bail!("The target `{target}` is not supported by nye.");
-        }
-    }
-
-    let mut targets = cmd.targets.clone();
-    if targets.is_empty() {
-        targets = ctx
-            .manifest
-            .targets
-            .keys()
-            .filter_map(|k| match k {
-                TargetOrShared::Shared => None,
-                TargetOrShared::Target(target) => Some(*target),
-            })
-            .collect();
-    }
-    let targets = targets;
+    let targets = collect_targets(cmd, &project)?;
+    validate_targets(cmd, &targets)?;
 
     if !cmd.overwrite {
-        for target in &targets {
-            let path = ctx.get_dist_package_path(*target);
-            let relative = pathdiff::diff_paths(&path, &ctx.path)
-                .context("Could not get relative path of output file.")?;
-
-            if fs::try_exists(path)
-                .await
-                .context("Could not check if output path already existed.")?
-            {
-                anyhow::bail!(
-                    "There's already a package file at `{}`. To overwrite it, use `--overwrite` (`-o` for short).",
-                    relative.display()
-                );
-            }
-        }
+        validate_collisions(&project, &targets)?;
     }
 
     for target in &targets {
         let bar = display::spinner(format!("Packaging for `{target}`..."));
-
-        let result = package::package(&ctx, *target)
-            .await
+        let result = project
+            .package_with_progress(*target, |event| {})
             .inspect_err(|_| {
                 bar.abandon_with_message(format!(
                     "An error occurred while packaging for `{target}`."
                 ))
             })
+            .await
             .context("Could not package project for target.")?;
 
-        let relative = pathdiff::diff_paths(result, &ctx.path)
+        let relative = pathdiff::diff_paths(result, &project.path)
             .context("Could not get relative path of output file.")?;
 
         bar.finish_with_message(format!(
@@ -92,6 +51,63 @@ pub async fn run(_args: &Args, cmd: &DevSubcommandPackSubcommandArgs) -> anyhow:
         display::list(&colored_targets),
         "dist/".blue()
     );
+
+    Ok(())
+}
+
+fn validate_targets(
+    cmd: &DevSubcommandPackSubcommandArgs,
+    targets: &[Target],
+) -> anyhow::Result<()> {
+    for target in &cmd.targets {
+        if !targets.contains(target) {
+            anyhow::bail!(
+                "The target `{target}` was passed to the pack command, but that target is not configured in the project's nye.toml manifest."
+            );
+        }
+
+        if !target.is_supported() {
+            anyhow::bail!("The target `{target}` is not supported by nye.");
+        }
+    }
+
+    Ok(())
+}
+
+fn collect_targets(cmd: &DevSubcommandPackSubcommandArgs, project: &Project) -> Vec<Target> {
+    let mut targets = cmd.targets.clone();
+
+    if targets.is_empty() {
+        targets = project
+            .manifest
+            .targets
+            .keys()
+            .filter_map(|k| match k {
+                TargetOrShared::Shared => None,
+                TargetOrShared::Target(target) => Some(target),
+            })
+            .collect();
+    }
+
+    targets
+}
+
+async fn validate_collisions(project: &Project, targets: &[Target]) -> anyhow::Result<()> {
+    for target in &targets {
+        let path = project.get_dist_package_path(*target);
+        let relative = pathdiff::diff_paths(&path, &project.path)
+            .context("Could not get relative path of output file.")?;
+
+        if fs::try_exists(path)
+            .await
+            .context("Could not check if output path already existed.")?
+        {
+            anyhow::bail!(
+                "There's already a package file at `{}`. To overwrite it, use `--overwrite` (`-o` for short).",
+                relative.display()
+            );
+        }
+    }
 
     Ok(())
 }

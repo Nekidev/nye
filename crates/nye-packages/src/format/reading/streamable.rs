@@ -84,8 +84,8 @@ use anyhow::Context;
 use tokio::io::{AsyncRead, AsyncReadExt, ReadBuf};
 
 use crate::format::reading::decoding::Decodeable;
-use crate::format::reading::{NyeFileHeader, NyeFileReadableEntry, Readable};
-use crate::format::safety::Safety;
+use crate::format::reading::safety::Safety;
+use crate::format::reading::{NyeFileHeader, NyeFileReadableEntry, Readable, validation};
 use crate::format::{NyeFileDirectory, NyeFileEntry, NyeFileEntryKind, NyeFileSignature, Segments};
 use crate::manifest::Manifest;
 
@@ -192,6 +192,9 @@ where
         let header = NyeFileHeader::decode(&mut file, &safety)
             .await
             .context("Could not parse package file's header.")?;
+
+        validation::validate(&header.manifest, &header.directory, &safety)
+            .context("The package file's manifest was improperly configured.")?;
 
         Ok(Self {
             inner: file,

@@ -77,7 +77,7 @@
 //!
 //! You can write the final package file to any type implementing both [`AsyncWrite`] and
 //! [`AsyncSeek`].
-//! 
+//!
 //! ```
 //! writer.write(File::open("output.nye").await).await?;
 //! ```
@@ -121,13 +121,47 @@ impl NyeFileWriter {
         }
     }
 
-    pub fn insert(&mut self, entry: NyeFileWriteableEntry) -> anyhow::Result<()> {
-        self.segments
-            .insert((entry.kind, entry.name.clone()))
-            .ok_or(anyhow::anyhow!(concat!(
-                "There's already a file in the directory with this name. Make sure the file ",
-                "names you insert are unique per file type."
-            )))?;
+    /// Inserts a writeable entry to the write queue.
+    ///
+    /// This function returns the passed value if the entry collides. To return an error instead,
+    /// use [`NyeFileWriter::try_insert()`].
+    ///
+    /// Arguments:
+    /// * `entry` - The writeable entry to add to the queue.
+    ///
+    /// Returns:
+    /// * `Ok(())` - If the entry was added successfully.
+    /// * `Err(NyeFileWriteableEntry)` - If the entry collided with an existing one.
+    pub fn insert(&mut self, entry: NyeFileWriteableEntry) -> Result<(), NyeFileWriteableEntry> {
+        if !self.segments.insert((entry.kind, entry.name.clone())) {
+            return Err(entry);
+        }
+
+        self.entries.push(entry);
+
+        Ok(())
+    }
+
+    /// Inserts a writeable entry to the write queue.
+    ///
+    /// This function returns an anyhow error. To get back the passed value, use
+    /// [`NyeFileWriter::insert()`] instead.
+    ///
+    /// Arguments:
+    /// * `entry` - The writeable entry to add to the queue.
+    ///
+    /// Returns:
+    /// * `Ok(())` - If the entry was added successfully.
+    /// * `Err(NyeFileWriteableEntry)` - If the entry collided with an existing one.
+    pub fn try_insert(&mut self, entry: NyeFileWriteableEntry) -> anyhow::Result<()> {
+        if !self.segments.insert((entry.kind, entry.name.clone())) {
+            anyhow::bail!(
+                "The provided {} '{}' collided with an existing entry in the queue.",
+                entry.kind,
+                entry.name
+            );
+        }
+
         self.entries.push(entry);
 
         Ok(())
@@ -219,12 +253,24 @@ impl NyeFileWriter {
 }
 
 pub struct NyeFileWriteableEntry {
-    name: Segments,
-    kind: NyeFileEntryKind,
+    pub name: Segments,
+    pub kind: NyeFileEntryKind,
     loader: Box<dyn LoadableWithoutKind>,
 }
 
 impl NyeFileWriteableEntry {
+    /// Creates a new writeable entry.
+    ///
+    /// Not all file names are valid. If you pass an invalid file name, an error will be returned.
+    /// See [`Segments`] for more information on encoding.
+    ///
+    /// Arguments:
+    /// * `kind` - The entry's artifact kind.
+    /// * `name` - The entry's name.
+    /// * `loader` - The entry's file content loader. See the [module's documentation] for
+    ///   information on how to create loaders.
+    /// 
+    /// [module's documentation]: self
     pub fn new<S, T, K, E>(kind: NyeFileEntryKind, name: S, loader: T) -> anyhow::Result<Self>
     where
         S: TryInto<Segments, Error = E>,
