@@ -846,6 +846,9 @@ async fn expose_envs(
     Ok(())
 }
 
+/// Updates the namespace's state database to record the newly installed package.
+/// 
+/// TODO: Finish documenting this and the function below.
 async fn update_state(
     namespace: &Namespace,
     manifest: &Manifest,
