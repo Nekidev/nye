@@ -50,7 +50,7 @@ pub struct PhantomAsyncFnOnceResult;
 /// }
 /// ```
 pub trait Loadable<Kind> {
-    async fn load(self) -> anyhow::Result<Box<dyn AsyncRead + Unpin + 'static>>;
+    fn load(self) -> impl std::future::Future<Output = anyhow::Result<Box<dyn AsyncRead + Unpin + 'static>>>;
 }
 
 impl<T> Loadable<PhantomDirect> for T

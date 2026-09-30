@@ -3700,6 +3700,7 @@ dependencies = [
  "linux-keyutils",
  "nanoid",
  "nye-environment",
+ "nye-namespaces",
  "nye-packages",
  "nye-projects",
  "nye-schemas",
@@ -3714,7 +3715,7 @@ dependencies = [
  "shellexpand",
  "tabled",
  "toasty 0.10.0",
- "toasty-cli",
+ "toasty-cli 0.10.0",
  "toasty-core 0.10.0",
  "tokio",
  "tokio-util",
@@ -3766,11 +3767,25 @@ name = "nye-namespaces"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "askama",
  "nye-packages",
  "nye-schemas",
+ "nye-utils",
+ "shellexpand",
  "toasty 0.11.0",
  "tokio",
  "users",
+]
+
+[[package]]
+name = "nye-namespaces-toasty"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "nye-namespaces",
+ "toasty 0.11.0",
+ "toasty-cli 0.11.0",
+ "tokio",
 ]
 
 [[package]]
@@ -5941,6 +5956,25 @@ dependencies = [
  "serde",
  "toasty 0.10.0",
  "toasty-core 0.10.0",
+ "toml",
+]
+
+[[package]]
+name = "toasty-cli"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "756d16e2809ceaad4e2e78c0f65f7241160951648574435b331ec8ec50735cbd"
+dependencies = [
+ "anyhow",
+ "clap",
+ "console",
+ "dialoguer",
+ "hashbrown 0.17.1",
+ "jiff",
+ "rand 0.10.2",
+ "serde",
+ "toasty 0.11.0",
+ "toasty-core 0.11.0",
  "toml",
 ]
 

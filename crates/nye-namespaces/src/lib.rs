@@ -34,22 +34,46 @@
 //! Namespace paths are the path to the namespace's root. For example, for a system-wide namespace,
 //! the path is `/`. You can find `/pkg` and `/bin` in it. For a user-specific namespace, the path
 //! is `/usr/{username}`. You can find user-specific `/pkg` and `/bin` in there.
+//!
+//! ## Installations
+//!
+//! This package manages installing, uninstalling, and administrating package installations in
+//! namespaces. Everything related to those operations is in the [`installations`] module.
 
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
 use anyhow::Context;
+use toasty::Db;
 use tokio::fs;
 
+pub mod database;
 pub mod installations;
-mod database;
 
 /// An namespace manager.
+#[derive(Debug, Clone)]
 pub struct Namespace {
     /// The path to the namespace's root.
     path: PathBuf,
+
+    /// The state database's connection.
+    state: Db,
 }
 
+// Expose internal properties via read-only references.
+impl Namespace {
+    /// The namespace's root.
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    /// The handle to the namespace's state database.
+    pub fn state(&self) -> &Db {
+        &self.state
+    }
+}
+
+// Associated functions and methods.
 impl Namespace {
     /// Create a new namespace.
     ///
@@ -69,7 +93,7 @@ impl Namespace {
             path.as_ref().join("lib"),
             path.as_ref().join("var"),
             path.as_ref().join("etc"),
-            path.as_ref().join("env"),
+            path.as_ref().join("env"),            
             path.as_ref().join("pkg").join("store"),
         ];
 
@@ -79,8 +103,14 @@ impl Namespace {
                 .context(format!("Could not create `{}`.", dir.display()))?;
         }
 
+        let database_path = path.as_ref().join("pkg").join("state");
+        let state = database::connect(format!("sqlite:{}", database_path.display()))
+            .await
+            .context("Could not connect to namespace's state database.")?;
+
         Ok(Namespace {
             path: path.as_ref().to_path_buf(),
+            state,
         })
     }
 
@@ -93,8 +123,16 @@ impl Namespace {
     /// * `Ok(Namespace)` - The namespace at the specified path.
     /// * `Err(Error)` - If the namespace was corrupt.
     pub async fn get(path: impl AsRef<Path>) -> anyhow::Result<Namespace> {
+        let state = database::connect(format!(
+            "sqlite:{}",
+            path.as_ref().join("pkg").join("state").display()
+        ))
+        .await
+        .context("Could not connect to namespace's state database.")?;
+
         let namespace = Namespace {
             path: path.as_ref().to_path_buf(),
+            state,
         };
 
         namespace
@@ -109,10 +147,18 @@ impl Namespace {
     ///
     /// Arguments:
     /// * `path` - The namespace's root path.
-    pub fn get_unchecked(path: impl AsRef<Path>) -> Namespace {
-        Namespace {
+    pub async fn get_unchecked(path: impl AsRef<Path>) -> anyhow::Result<Namespace> {
+        let state = database::connect(format!(
+            "sqlite:{}",
+            path.as_ref().join("pkg").join("state").display()
+        ))
+        .await
+        .context("Could not connect to namespace's state database.")?;
+
+        Ok(Namespace {
             path: path.as_ref().to_path_buf(),
-        }
+            state,
+        })
     }
 
     /// Get a user's namespace by their ID.
@@ -186,19 +232,20 @@ impl Namespace {
     /// namespace.verify_integrity().context("The namespace was corrupted.")?;
     /// ```
     pub async fn verify_integrity(&self) -> anyhow::Result<()> {
-        let dirs = [
+        let paths = [
             self.path.join("bin"),
             self.path.join("lib"),
             self.path.join("var"),
             self.path.join("etc"),
             self.path.join("env"),
+            self.path.join("pkg").join("state"),
             self.path.join("pkg").join("store"),
         ];
 
-        for dir in dirs {
+        for dir in paths {
             if !fs::try_exists(&dir)
                 .await
-                .context("Could not check if directory existed.")?
+                .context("Could not check if file or directory existed.")?
             {
                 anyhow::bail!(
                     "`{}` does not exist. It must in a valid installation.",

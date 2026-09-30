@@ -1,6 +1,8 @@
 use std::path::PathBuf;
 
+use anyhow::Context;
 use clap::ArgAction;
+use nye_namespaces::Namespace;
 use nye_schemas::targets::Target;
 use url::Url;
 
@@ -31,6 +33,17 @@ pub struct Args {
 
     #[command(subcommand)]
     pub subcommand: Option<Subcommand>,
+}
+
+impl Args {
+    /// Returns the [`Namespace`] in use for this command.
+    pub async fn get_namespace(&self) -> anyhow::Result<Namespace> {
+        if self.system {
+            Namespace::get_for_system().await.context("Could not get system-wide namespace.")
+        } else {
+            Namespace::get_for_current_user().await.context("Could not get current user's namespace.")
+        }
+    }
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -106,10 +119,6 @@ pub struct DevSubcommandPackSubcommandArgs {
     /// Filter the supported targets to package.
     #[arg(short, long = "target")]
     pub targets: Vec<Target>,
-
-    /// Overwrite existing packages in the dist folder.
-    #[arg(short, long)]
-    pub overwrite: bool,
 
     /// Display instructions on how to use nye dev pack.
     #[arg(short, long, action = ArgAction::Help)]

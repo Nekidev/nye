@@ -55,8 +55,7 @@ where
     /// Rules:
     /// * If major versions differ, this is false.
     /// * If major versions are 0 and minor versions differ, this is false.
-    /// * If this version's minor is greater than the other version's minor,
-    ///   this is false.
+    /// * If this version's minor is greater than the other version's minor, this is false.
     /// * If prerelease versions differ, this is false.
     /// * If none of the checks above are false, this is true.
     pub fn is_compatible(&self, other: &Self) -> bool {
@@ -399,6 +398,24 @@ where
         }
 
         Ok(())
+    }
+}
+
+impl<T> From<Semver<T>> for String
+where
+    T: Number,
+{
+    fn from(val: Semver<T>) -> Self {
+        val.to_string()
+    }
+}
+
+impl<T> From<&Semver<T>> for String
+where
+    T: Number,
+{
+    fn from(val: &Semver<T>) -> Self {
+        val.to_string()
     }
 }
 

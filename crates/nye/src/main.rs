@@ -1,9 +1,8 @@
 use anyhow::Context;
 use clap::{CommandFactory, FromArgMatches};
 use colored::Colorize;
-use nye::args::RegistrySubcommandSubcommand;
-use nye::args::{Args, DevSubcommandSubcommand, ListSubcommandSubcommand, Subcommand};
-use nye::targets::Target;
+use nye::args::{Args, DevSubcommandSubcommand, Subcommand};
+use nye_schemas::targets::Target;
 
 fn main() {
     let result = main_inner();
@@ -72,29 +71,19 @@ async fn main_inner() -> anyhow::Result<()> {
                 }
             },
             Subcommand::Install(cmd) => nye::commands::install::run(&args, cmd).await?,
-            Subcommand::Uninstall(cmd) => nye::commands::uninstall::run(&args, cmd).await?,
-            Subcommand::List(subcommand) => match &subcommand.subcommand {
-                None => nye::commands::list::run(&args, subcommand).await?,
-                Some(ListSubcommandSubcommand::Bins(cmd)) => {
-                    nye::commands::list_bins::run(&args, cmd).await?
-                }
-                Some(ListSubcommandSubcommand::Libs(cmd)) => {
-                    nye::commands::list_libs::run(&args, cmd).await?
-                }
-            },
-            Subcommand::Signin(cmd) => nye::commands::signin::run(&args, cmd).await?,
-            Subcommand::Signup(cmd) => nye::commands::signup::run(&args, cmd).await?,
-            Subcommand::Registry(subcommand) => match &subcommand.subcommand {
-                RegistrySubcommandSubcommand::Run(cmd) => {
-                    nye::commands::registry_run::run(&args, cmd).await?
-                }
-                #[cfg(debug_assertions)]
-                RegistrySubcommandSubcommand::Toasty(cmd) => {
-                    nye::commands::registry_toasty::run(&args, cmd).await?
-                }
-            },
-            #[cfg(debug_assertions)]
-            Subcommand::Toasty(cmd) => nye::commands::toasty::run(&args, cmd).await?,
+            _ => eprintln!("IN THE WORKS!"),
+            // Subcommand::Uninstall(cmd) => nye::commands::uninstall::run(&args, cmd).await?,
+            // Subcommand::List(subcommand) => match &subcommand.subcommand {
+            //     None => nye::commands::list::run(&args, subcommand).await?,
+            //     Some(ListSubcommandSubcommand::Bins(cmd)) => {
+            //         nye::commands::list_bins::run(&args, cmd).await?
+            //     }
+            //     Some(ListSubcommandSubcommand::Libs(cmd)) => {
+            //         nye::commands::list_libs::run(&args, cmd).await?
+            //     }
+            // },
+            // Subcommand::Signin(cmd) => nye::commands::signin::run(&args, cmd).await?,
+            // Subcommand::Signup(cmd) => nye::commands::signup::run(&args, cmd).await?,
         }
     } else {
         command_copy

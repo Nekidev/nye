@@ -2,7 +2,6 @@ use anyhow::Context as AnyhowContext;
 use colored::Colorize;
 use nye_projects::{Project, TargetOrShared};
 use nye_schemas::targets::Target;
-use tokio::fs;
 
 use crate::args::{Args, DevSubcommandPackSubcommandArgs};
 use crate::display;
@@ -13,23 +12,19 @@ pub async fn run(_args: &Args, cmd: &DevSubcommandPackSubcommandArgs) -> anyhow:
         .context("Could not get current project context.")?
         .context("No project was found in the current directory nor any of its parents.")?;
 
-    let targets = collect_targets(cmd, &project)?;
+    let targets = collect_targets(cmd, &project);
     validate_targets(cmd, &targets)?;
-
-    if !cmd.overwrite {
-        validate_collisions(&project, &targets)?;
-    }
 
     for target in &targets {
         let bar = display::spinner(format!("Packaging for `{target}`..."));
         let result = project
-            .package_with_progress(*target, |event| {})
+            .package(*target)
+            .await
             .inspect_err(|_| {
                 bar.abandon_with_message(format!(
                     "An error occurred while packaging for `{target}`."
                 ))
             })
-            .await
             .context("Could not package project for target.")?;
 
         let relative = pathdiff::diff_paths(result, &project.path)
@@ -86,28 +81,9 @@ fn collect_targets(cmd: &DevSubcommandPackSubcommandArgs, project: &Project) -> 
                 TargetOrShared::Shared => None,
                 TargetOrShared::Target(target) => Some(target),
             })
+            .cloned()
             .collect();
     }
 
     targets
-}
-
-async fn validate_collisions(project: &Project, targets: &[Target]) -> anyhow::Result<()> {
-    for target in &targets {
-        let path = project.get_dist_package_path(*target);
-        let relative = pathdiff::diff_paths(&path, &project.path)
-            .context("Could not get relative path of output file.")?;
-
-        if fs::try_exists(path)
-            .await
-            .context("Could not check if output path already existed.")?
-        {
-            anyhow::bail!(
-                "There's already a package file at `{}`. To overwrite it, use `--overwrite` (`-o` for short).",
-                relative.display()
-            );
-        }
-    }
-
-    Ok(())
 }

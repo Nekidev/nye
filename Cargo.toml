@@ -5,7 +5,7 @@ members = [
     "crates/nye-environment",
     "crates/nye-keyring-daemon",
     "crates/nye-keyring-daemon-protocol",
-    "crates/nye-namespaces",
+    "crates/nye-namespaces", "crates/nye-namespaces-toasty",
     "crates/nye-packages",
     "crates/nye-projects",
     "crates/nye-registry",

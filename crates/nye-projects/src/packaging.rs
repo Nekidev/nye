@@ -188,7 +188,7 @@ impl Project {
     /// The output file will be created at `project/dist/{name}-v{version}-for-{target}.nye`. The
     /// full path is returned by this function for easy access. It is not recommended to fill up
     /// the output file template yourself, as it may change in future versions.
-    /// 
+    ///
     /// The progress handler can take a few different function types as handlers:
     /// * `|| {}`
     /// * `|| { Ok(()) }`
@@ -235,7 +235,7 @@ impl Project {
     /// the specified outputs and handling progress events.
     ///
     /// A failure of this function does not guarantee the output has not been written to.
-    /// 
+    ///
     /// The progress handler can take a few different function types as handlers:
     /// * `|| {}`
     /// * `|| { Ok(()) }`
@@ -345,15 +345,15 @@ impl Project {
                     pending.push((root.clone(), kind, name.join(ext)));
                 } else {
                     let entry_path = entry.path();
-                    let entry_name = Segments::from_str(&name.display().to_string())
-                        .context("context")
-                        .context("File in target source had an invalid name.")?;
+                    let entry_name = Segments::from_str(&entry.file_name().display().to_string())
+                        .context("File in target source had an invalid name.")
+                        .context(entry.file_name().display().to_string())?;
 
                     let loaded = loaded.clone();
                     let event_tx_copy = event_tx.clone();
                     let entry = NyeFileWriteableEntry::new(
                         kind,
-                        name.display().to_string(),
+                        entry.file_name().display().to_string(),
                         async move || {
                             let _ = event_tx_copy.send(ProgressEvent::Loading {
                                 index: loaded.fetch_add(1, Ordering::SeqCst),
@@ -364,7 +364,8 @@ impl Project {
                             Ok(File::open(entry_path).await?)
                         },
                     )
-                    .context("File in target source had an invalid name.")?;
+                    .context("File in target source had an invalid name.")
+                    .context(entry.file_name().display().to_string())?;
 
                     // Will only fail if colliding. Since only collision chances are when loading
                     // the shared artifacts, shared artifacts are loaded last (see `pending`
@@ -385,6 +386,8 @@ impl Project {
             .context("Could not write the package file.")?;
 
         let _ = event_tx.send(ProgressEvent::Done { total });
+        drop(event_tx);
+        
         event_forwarder
             .await
             .context("The event-forwarding task panicked.")?

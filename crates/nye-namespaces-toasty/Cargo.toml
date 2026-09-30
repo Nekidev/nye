@@ -1,0 +1,11 @@
+[package]
+name = "nye-namespaces-toasty"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { version = "1.0.104", features = ["backtrace"] }
+nye-namespaces = { version = "0.1.0", path = "../nye-namespaces" }
+toasty = { version = "0.11.0", features = ["sqlite", "migration"] }
+toasty-cli = "0.11.0"
+tokio = { version = "1.53.1", features = ["rt", "macros", "rt-multi-thread"] }

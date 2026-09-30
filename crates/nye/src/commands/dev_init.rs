@@ -27,7 +27,7 @@ pub async fn run(_args: &Args, cmd: &DevSubcommandInitSubcommandArgs) -> anyhow:
         .context("The specified project name was invalid.")?
         .with_target(Target::get_current().context("Could not get current target.")?)
         .with_target(TargetOrShared::Shared)
-        .init(cmd.path)
+        .init(&cmd.path)
         .await
         .context("Could not initialize project.")?;
 

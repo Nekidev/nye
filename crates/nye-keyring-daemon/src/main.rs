@@ -1,3 +1,34 @@
+//! Nye's registry credential "keyring" daemon.
+//!
+//! This package provides a small binary that stores registry credentials as plain text in
+//! root-owned files.
+//!
+//! This daemon provides little extra protection in practice other than not storing the
+//! plain-text credential files under user-owned files. In practice, any program that understands
+//! this daemon's protocol will be able to read the current user's credentials just fine, just not
+//! another user's (provided they don't have sudo access). It may, and likely will, provide more
+//! robust security in the future.
+//!
+//! This daemon uses the [`nye_keyring_daemon_protocol`] library to communicate with clients, and
+//! so can do clients to communicate with this daemon.
+//!
+//! # Installation
+//!
+//! You can install this daemon by running the following cargo command in your terminal:
+//!
+//! ```sh
+//! cargo install nye-keyring-daemon
+//! ```
+//!
+//! # Usage
+//!
+//! The binary's interface will be mostly self-describing using the `--help` command. It has only
+//! one CLI flag available and it's only there in debug builds to skip the root user checks.
+//! Otherwise, running `sudo nye-keyring-daemon` in your terminal will start the process.
+//!
+//! In most cases, you'll want to have this binary as a process handled by a service that starts
+//! with your system.
+
 use anyhow::Context;
 use chrono::{Duration, Utc};
 use clap::Parser;

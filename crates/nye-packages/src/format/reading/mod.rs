@@ -22,8 +22,8 @@
 //!
 //! ## Manifest
 //!
-//! To get the package's manifest, use `manifest()`. It's parsed when the file is opened, so
-//! calling that method is just grabbing a reference.
+//! To get the package's manifest, use `NyeFile*Reader::manifest()`. It's parsed when the file is
+//! opened, so calling that method is just grabbing a reference.
 //!
 //! ## Reading Files
 //!
@@ -41,6 +41,38 @@
 //!
 //! [`NyeFileSeekableReader::get_entry_by_path()`] requires a [`Segments`] object to be passed as
 //! the path argument. The only way to initialize it is via [`Segments::from_str`].
+//! 
+//! To iterate on the files, the cleanest way is something like follows:
+//! 
+//! ```
+//! let mut reader = ...;
+//! 
+//! let mut i = 0;
+//! while let Some(entry) = reader.get_entry_by_index(i).await? {
+//!     // do something
+//!     i += 1;
+//! }
+//! ```
+//! 
+//! In cases where the file is too big to extract as a copy (due to duplication), it is also
+//! possible to shrink the package file as contents are read by reading from the file's end and
+//! shrinking the package file by the extracted file's size on each extraction. Tokio's [`File`]
+//! makes doing this easy via [`File::set_len()`].
+//! 
+//! ```
+//! let file = File::open("big-fat-package.nye").await?;
+//! let file_copy = file.try_clone().await?;
+//! let mut file_size = file.metadata().await?.len();
+//! let mut reader = NyeFileSeekableReader::open(file_copy, Safety::default()).await?;
+//! 
+//! let mut i = reader.entries().len();
+//! while i > 0 && let Some(entry) = reader.get_entry_by_index(i - 1).await? {
+//!     // do stuff
+//!     file_size -= entry.size;
+//!     file.set_len(file_size).await?;
+//!     i -= 1;
+//! }
+//! ```
 //!
 //! ### With [`NyeFileStreamableReader`]
 //!
@@ -50,6 +82,8 @@
 //!
 //! Reading is done in an iterator style, calling [`NyeFileStreamableReader::get_next_entry()`].
 //!
+//! [`File`]: tokio::fs::File
+//! [`File::set_len()`]: tokio::fs::File::set_len
 //! [`Safety`]: safety::Safety
 //! [`Safety::default()`]: super::safety::Safety::default
 //! [`Segments::from_str`]: std::str::FromStr::from_str
@@ -65,10 +99,10 @@ use crate::format::{NyeFileDirectory, NyeFileEntryKind, NyeFileSignature, Segmen
 use crate::manifest::Manifest;
 
 pub mod decoding;
+pub mod safety;
 pub mod seekable;
 pub mod streamable;
 pub mod validation;
-pub mod safety;
 
 pub use seekable::NyeFileSeekableReader;
 pub use streamable::NyeFileStreamableReader;
