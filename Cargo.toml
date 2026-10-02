@@ -5,17 +5,22 @@ members = [
     "crates/nye-environment",
     "crates/nye-keyring-daemon",
     "crates/nye-keyring-daemon-protocol",
-    "crates/nye-namespaces", "crates/nye-namespaces-toasty",
+    "crates/nye-namespaces",
+    "crates/nye-namespaces-toasty",
     "crates/nye-packages",
     "crates/nye-projects",
     "crates/nye-registry",
-    "crates/nye-registry-client",
-    "crates/nye-registry-client-http",
-    "crates/nye-registry-client-local",
+    "crates/nye-registry-http-client",
+    "crates/nye-registry-http-server",
+    "crates/nye-registry-local-client",
     "crates/nye-schemas",
     "crates/nye-utils",
     "crates/nye-validation",
 ]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
 
 [profile.release]
 opt-level = 3

@@ -96,3 +96,10 @@ Regarding dependencies:
     back $NYE_INSTALLATION_BIN, $NYE_INSTALLATION_LIB, $NYE_INSTALLATION_ETC, and so. Then
     $NYE_INSTALLATION_BIN and $NYE_INSTALLATION_LIB point to the package's source in /pkg/store and
     $NYE_INSTALLATION_VAR and $NYE_INSTALLATION_ETC go to /dep/{dependency-name}/{etc,var}.
+
+
+Regarding nye-namespaces-toasty:
+
+    It'll go to `nye-namespaces`. There's little benefit in having a separate crate for it since
+    binaries are only installed through `cargo install` when the crate is a library crate, i.e.
+    `cargo add`.

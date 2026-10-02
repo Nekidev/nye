@@ -3675,7 +3675,7 @@ dependencies = [
 
 [[package]]
 name = "nye"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "argon2",
@@ -3730,14 +3730,14 @@ dependencies = [
 
 [[package]]
 name = "nye-environment"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "anyhow",
 ]
 
 [[package]]
 name = "nye-keyring-daemon"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3755,7 +3755,7 @@ dependencies = [
 
 [[package]]
 name = "nye-keyring-daemon-protocol"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "bitcode",
@@ -3764,7 +3764,7 @@ dependencies = [
 
 [[package]]
 name = "nye-namespaces"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "askama",
@@ -3779,7 +3779,7 @@ dependencies = [
 
 [[package]]
 name = "nye-namespaces-toasty"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "nye-namespaces",
@@ -3790,7 +3790,7 @@ dependencies = [
 
 [[package]]
 name = "nye-packages"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "async_zip",
@@ -3804,7 +3804,7 @@ dependencies = [
 
 [[package]]
 name = "nye-projects"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "dedent",
@@ -3819,6 +3819,14 @@ dependencies = [
 
 [[package]]
 name = "nye-registry"
+version = "0.0.0"
+
+[[package]]
+name = "nye-registry-http-client"
+version = "0.0.0"
+
+[[package]]
+name = "nye-registry-http-server"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -3847,20 +3855,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "nye-registry-client"
-version = "0.1.0"
-
-[[package]]
-name = "nye-registry-client-http"
-version = "0.1.0"
-
-[[package]]
-name = "nye-registry-client-local"
-version = "0.1.0"
+name = "nye-registry-local-client"
+version = "0.0.0"
 
 [[package]]
 name = "nye-schemas"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "path-clean",
@@ -3871,7 +3871,7 @@ dependencies = [
 
 [[package]]
 name = "nye-utils"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "users",
@@ -3879,7 +3879,7 @@ dependencies = [
 
 [[package]]
 name = "nye-validation"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "path-clean",

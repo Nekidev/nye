@@ -1,7 +1,6 @@
 [package]
-name = "nye-environment"
+name = "nye-registry-local-client"
 version.workspace = true
 edition.workspace = true
 
 [dependencies]
-anyhow = "1.0.104"
