@@ -1,0 +1,98 @@
+This file contain future plans for this crate.
+
+
+Regarding the installations API:
+
+    It's pretty unclean right now. It works, yet it's not as clean as it could be. The `Namespace`
+    API and all the `Namespace`-related methods (`get_*` for namespaces, `create()`) work 10/10 and
+    those will be kept. However, I feel that all the `Installation` API could be improved.
+
+    My current vision of how the installations API can be improved is the following:
+
+        - Installation::new() - A new, 
+        - Installation::install()
+        - Installation::uninstall()
+        - Installation::check()
+
+    Thinking it twice, that doesn't make much of a difference. ChatGPT are you me? (I'm not, I'm
+    typing this by hand)
+
+    What CAN be improved right now, though, is making the Installation type expose more information
+    about the installation. The current type works more like a pointer to the installation than
+    something you can use to inspect installed packages.
+
+    My plans for renaming stuff:
+
+        - Namespace::get_installations()                    -> Namespace::installations()
+        - Namespace::get_installation_by_name()             -> Namespace::installations_by_name()
+        - Namespace::get_installation_by_name_and_version() -> Namespace::get_installation()
+
+    There's also no API yet to expose querying the other stuff of the database module. Exposed
+    artifacts cannot be queried at all, you have to go check the filesystem to see what's there. Or
+    use the not-recommended-to-use and soon-to-be-removed database module. I plan to have something
+    like
+
+        - Namespace::artifacts()
+        - Namespace::artifacts_by_link()
+        - Namespace::artifacts_by_installation()
+        - Namespace::get_artifact_by_link()
+
+
+Regarding the database module:
+
+    Made private. I don't think making the database a public API is a good idea. Not being able to
+    migrate data because old dependencies will depend on it will be more of a pain in the ass than
+    if it's abstracted by the library itself (still a pain in the ass).
+    
+    Also, the database depends on things being written properly to it. For example, Version records
+    are assumed to have a valid Semver value set in the number field. Facilitating unrestricted
+    access to the state database is begging to have things broken by third parties. Abstracting and
+    validating lets me keep it clean.
+
+
+Regarding dependencies:
+
+    Dependencies depend on having registries to have dependencies pulled from. I do have plans for
+    the structure of things, though.
+
+    Dependencies need to have their own runtime state as dependencies. I.e. dependency-installed
+    Redis should not use user-installed Redis' data. Packages are not considered to be immutable,
+    yet we can make some assumptions over the immutability of artifacts:
+
+    Immutable:
+
+        - bin
+        - lib
+        - env
+
+    Mutable:
+
+        - var
+        - etc
+
+    Then, we can have only one copy of immutable artifacts and keep per-scope (user installation,
+    dependency installation) versions of mutable ones.
+
+    I'll have to make an exception for env values, since $NYE_INSTALLATION will be different
+    depending on the scope.
+
+    Dependencies will be installed normally under /pkg/store, just not exposed to the user's /bin,
+    /lib, /env, and /etc. Those will go to /dep/{dependency-name}/* instead.
+
+    Directories will then look like this:
+
+        - /pkg/store/{package-name}/{package-version}/dep/{dependency-name}/bin/* - Binary wrappers
+        - /pkg/store/{package-name}/{package-version}/dep/{dependency-name}/lib/* - Symlinks
+        - /pkg/store/{package-name}/{package-version}/dep/{dependency-name}/env/* - Value files
+        - /pkg/store/{package-name}/{package-version}/dep/{dependency-name}/var/* - Brand new copy of variable data
+        - /pkg/store/{package-name}/{package-version}/dep/{dependency-name}/etc/* - Brand new copy of configuration files
+    
+    I was thinking of nesting stuff, i.e. /dep/dep1/dep/subdep1/dep/subsubdep1, yet that will hit
+    limits on how deep it can go. I've seen many package managers flatten out dependencies and
+    sub-dependencies, which could be done. I just feel it's not clean, you kill organization.
+    Dependency trees are just the same as filesystem trees.
+
+    Package runtime data will be specific to that instance. That means we'll likely have to bring
+    back $NYE_INSTALLATION_BIN, $NYE_INSTALLATION_LIB, $NYE_INSTALLATION_ETC, and so. Then
+    $NYE_INSTALLATION_BIN and $NYE_INSTALLATION_LIB point to the package's source in /pkg/store and
+    $NYE_INSTALLATION_VAR and $NYE_INSTALLATION_ETC go to /dep/{dependency-name}/{etc,var}.
