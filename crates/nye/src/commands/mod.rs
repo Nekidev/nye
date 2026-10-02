@@ -11,4 +11,4 @@ pub mod install;
 // pub mod signup;
 // #[cfg(debug_assertions)]
 // pub mod toasty;
-// pub mod uninstall;
+pub mod uninstall;

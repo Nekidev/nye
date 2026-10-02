@@ -70,11 +70,6 @@ pub enum Subcommand {
 
     /// Sign up for a registry.
     Signup(SignupSubcommandArgs),
-
-    /// Toasty development migration commands.
-    #[cfg(debug_assertions)]
-    #[command(visible_alias = "t")]
-    Toasty(ToastySubcommandArgs),
 }
 
 #[derive(clap::Args)]
@@ -216,21 +211,6 @@ pub struct SignupSubcommandArgs {
     pub password: Option<String>,
 
     /// Display instructions on how to use nye signup.
-    #[arg(short, long, action = ArgAction::Help)]
-    pub help: Option<bool>,
-}
-
-#[cfg(debug_assertions)]
-#[derive(clap::Args)]
-pub struct ToastySubcommandArgs {
-    /// The arguments to pass to the toasty command.
-    pub args: Vec<String>,
-
-    /// The SQLite database URL to use to generate migrations.
-    #[arg(short, long, default_value = "sqlite://state.db")]
-    pub database_url: Url,
-
-    /// Display instructions on how to use nye toasty.
     #[arg(short, long, action = ArgAction::Help)]
     pub help: Option<bool>,
 }

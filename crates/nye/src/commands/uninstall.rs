@@ -3,25 +3,43 @@ use colored::Colorize;
 
 use crate::args::{Args, UninstallSubcommandArgs};
 use crate::display;
-use crate::installations::actions::uninstall;
-use crate::installations::context::Context;
 
 pub async fn run(args: &Args, cmd: &UninstallSubcommandArgs) -> anyhow::Result<()> {
     if cmd.packages.is_empty() {
         anyhow::bail!("Specify at least one package to uninstall.");
     }
 
-    let ctx = Context::get_current(args.system)
+    let nms = args
+        .get_namespace()
         .await
-        .context("Could not get current installation context.")?;
+        .context("Could not get current namespace.")?;
 
-    let bar = display::spinner("Uninstalling packages...");
+    let mut installations = Vec::with_capacity(cmd.packages.len());
+    let bar = display::spinner("Getting installed packages...");
+
     for package_name in &cmd.packages {
-        bar.set_message(format!("Uninstalling {}...", package_name.blue()));
-
-        uninstall::uninstall(&ctx, package_name)
+        let installation = nms
+            .get_installation_by_name(package_name)
             .await
-            .context(format!("Could not uninstall package {}.", package_name))?;
+            .context("Could not get installation from namespace.")?
+            .context(format!("No package called `{package_name}` is installed."))?;
+
+        installations.push(installation);
+    }
+
+    for installation in installations {
+        let package_name = installation.package_name.clone();
+        let package_version = installation.package_version.clone();
+
+        bar.set_message(format!(
+            "Uninstalling {}...",
+            format!("{package_name} v{package_version}").blue()
+        ));
+
+        installation
+            .uninstall()
+            .await
+            .context(format!("Could not uninstall package {package_name}."))?;
     }
     bar.finish_and_clear();
 

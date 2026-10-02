@@ -135,7 +135,9 @@ use anyhow::Context;
 use askama::Template;
 use nye_packages::format::NyeFileEntryKind;
 use nye_packages::format::reading::{NyeFileSeekableReader, ReadableSeekable};
-use nye_packages::manifest::{Manifest, ManifestConsumesEnv, ManifestExposesArtifact};
+use nye_packages::manifest::{
+    Manifest, ManifestConsumesEnv, ManifestExposesArtifact, ManifestExposesEnv,
+};
 use nye_utils::time;
 use toasty::Executor;
 use tokio::fs::{self, File};
@@ -301,6 +303,7 @@ where
             .context("Could not expose installation.")?;
 
         Ok(Installation {
+            namespace: self.namespace,
             path: installation,
             package_name: manifest.package.name.clone(),
             package_version: manifest.package.version.clone(),
@@ -472,6 +475,7 @@ impl InstallationCrafter {
             .context("Could not expose installation.")?;
 
         Ok(Installation {
+            namespace: self.namespace,
             path: installation,
             package_name: self.manifest.package.name,
             package_version: self.manifest.package.version,
@@ -661,9 +665,9 @@ async fn expose_installation(
 /// This function creates binary wrappers ([`Wrapper`]) and stores them as executables in the
 /// namespace's bin directory. It does not check for collisions, so it's on the caller to ensure
 /// none occur.
-/// 
+///
 /// Wrappers are stored in the namespace's bin directory, for example
-/// 
+///
 /// ```sh
 /// $ # this will output way more data, this is for illustrative purposes.
 /// $ cat /bin/busybox
@@ -735,7 +739,8 @@ async fn expose_bins(
 
 /// Exposes an installed package's libraries.
 ///
-/// This function creates symlinks to the original library files in the namespace's lib directory. For example,
+/// This function creates symlinks to the original library files in the namespace's lib directory.
+/// For example,
 ///
 /// ```text
 /// /lib/libopenssl.so   -> /pkg/store/openssl/1.0.0/lib/libopenssl.so
@@ -774,13 +779,13 @@ async fn expose_libs(
 /// ```text
 /// Link:
 /// /env/PYTHONPATH/python3-requests/1.0.0 -> /pkg/store/python3-requests/1.0.0/env/PYTHONPATH
-/// 
+///
 /// Files exposed:
 /// /pkg/store/python3-requests/1.0.0/env/PYTHONPATH/0.txt
 /// /pkg/store/python3-requests/1.0.0/env/PYTHONPATH/1.txt
 /// /pkg/store/python3-requests/1.0.0/env/PYTHONPATH/2.txt
 /// ```
-/// 
+///
 /// The values get the `NYE_INSTALLATION` env variable expanded before storing the value, so that
 /// other packages cannot change the way it's interpreted depending on the context.
 ///
@@ -847,7 +852,7 @@ async fn expose_envs(
 }
 
 /// Updates the namespace's state database to record the newly installed package.
-/// 
+///
 /// TODO: Finish documenting this and the function below.
 async fn update_state(
     namespace: &Namespace,
@@ -864,9 +869,15 @@ async fn update_state(
         .await
         .context("Could not get transaction from namespace database connection.")?;
 
+    let package_path = installation
+        .as_ref()
+        .parent()
+        .context("Installation path had no parent??")?;
+
     // TODO: use get or create.
     let package = toasty::create!(Package {
         name: &manifest.package.name,
+        path: package_path.display().to_string(),
         created_at: time::utc_now_ms(),
         updated_at: time::utc_now_ms(),
     })
@@ -877,6 +888,7 @@ async fn update_state(
     let version = toasty::create!(Version {
         number: manifest.package.version.to_string(),
         package: &package,
+        path: installation.as_ref().display().to_string(),
         created_at: time::utc_now_ms(),
         updated_at: time::utc_now_ms(),
     })
@@ -904,6 +916,15 @@ async fn update_state(
     )
     .await
     .context("Could not update namespace's database with exposed binaries.")?;
+    update_state_for_envs(
+        &package,
+        &version,
+        &manifest.exposes.env,
+        &installation,
+        &mut transaction,
+    )
+    .await
+    .context("Could not update namespace's database with exposed environment variables.")?;
 
     transaction
         .commit()
@@ -939,6 +960,40 @@ async fn update_state_for_artifacts(
         .exec(executor)
         .await
         .context("Could not store package's exposed artifacts in namespace's state database.")?;
+    }
+
+    Ok(())
+}
+
+async fn update_state_for_envs(
+    package: &Package,
+    version: &Version,
+    vars: &[ManifestExposesEnv],
+    installation: impl AsRef<Path>,
+    executor: &mut dyn Executor,
+) -> anyhow::Result<()> {
+    let mut counters = HashMap::new();
+
+    for var in vars {
+        let counter = counters.entry(&var.name).or_insert(0);
+        let file_path = installation
+            .as_ref()
+            .join("env")
+            .join(&var.name)
+            .join(format!("{counter}.txt"));
+
+        toasty::create!(Artifact {
+            package: package,
+            version: version,
+            path: file_path.display().to_string(),
+            kind: ArtifactKind::Env,
+            link: &var.name,
+            created_at: time::utc_now_ms(),
+            updated_at: time::utc_now_ms(),
+        })
+        .exec(executor)
+        .await
+        .context("Could not store package's exposed environment variables in namespace's state database.")?;
     }
 
     Ok(())

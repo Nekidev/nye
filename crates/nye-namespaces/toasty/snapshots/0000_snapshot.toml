@@ -15,12 +15,18 @@ storage_ty = "Text"
 
 [[schema.tables.columns]]
 id = { table = 0, index = 1 }
+name = "path"
+ty = "String"
+storage_ty = "Text"
+
+[[schema.tables.columns]]
+id = { table = 0, index = 2 }
 name = "created_at"
 ty = "U64"
 storage_ty = { UnsignedInteger = 8 }
 
 [[schema.tables.columns]]
-id = { table = 0, index = 2 }
+id = { table = 0, index = 3 }
 name = "updated_at"
 ty = "U64"
 storage_ty = { UnsignedInteger = 8 }
@@ -52,12 +58,18 @@ storage_ty = "Text"
 
 [[schema.tables.columns]]
 id = { table = 1, index = 2 }
+name = "path"
+ty = "String"
+storage_ty = "Text"
+
+[[schema.tables.columns]]
+id = { table = 1, index = 3 }
 name = "created_at"
 ty = "U64"
 storage_ty = { UnsignedInteger = 8 }
 
 [[schema.tables.columns]]
-id = { table = 1, index = 3 }
+id = { table = 1, index = 4 }
 name = "updated_at"
 ty = "U64"
 storage_ty = { UnsignedInteger = 8 }

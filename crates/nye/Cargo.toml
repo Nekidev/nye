@@ -6,9 +6,6 @@ license = "GPL-3.0"
 description = "Nyeki's package manager."
 default-run = "nye"
 
-[lib]
-doctest = false
-
 [dependencies]
 anyhow = { version = "1.0.104", features = ["backtrace"] }
 argon2 = "0.6.0"

@@ -1,4 +1,9 @@
 //! Installation state, containing metadata about installed packages.
+//!
+//! <div class="warning">
+//! It is not recommended to touch the database using this module, as doing so incorrectly will
+//! break the namespace.
+//! </div>
 
 use std::fmt::Display;
 
@@ -12,9 +17,9 @@ pub struct Package {
     pub name: String,
 
     /// The full path to where the package's versions are installed.
-    /// 
+    ///
     /// E.g. `/usr/root/pkg/store/busybox`
-    /// 
+    ///
     /// Note: It may or may not end with a trailing slash. It will always be absolute.
     pub path: String,
 
@@ -35,9 +40,9 @@ pub struct Version {
     pub package_name: String,
 
     /// The full path to where this version's files are installed.
-    /// 
+    ///
     /// E.g. `/usr/root/pkg/store/busybox/1.0.0`
-    /// 
+    ///
     /// Note: It may or may not end with a trailing slash. It will always be absolute.
     pub path: String,
 
@@ -50,7 +55,7 @@ pub struct Version {
 
 #[derive(Model)]
 #[index(package_name, version_number)]
-#[unique(kind, link)]
+#[index(kind, link)]
 pub struct Artifact {
     #[key]
     #[auto]

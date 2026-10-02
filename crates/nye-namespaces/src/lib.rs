@@ -50,7 +50,7 @@ use tokio::fs;
 pub mod database;
 pub mod installations;
 
-/// An namespace manager.
+/// A namespace manager.
 #[derive(Debug, Clone)]
 pub struct Namespace {
     /// The path to the namespace's root.
@@ -60,7 +60,7 @@ pub struct Namespace {
     state: Db,
 }
 
-// Expose internal properties via read-only references.
+/// Exposed internal properties via read-only references.
 impl Namespace {
     /// The namespace's root.
     pub fn path(&self) -> &Path {
@@ -73,7 +73,7 @@ impl Namespace {
     }
 }
 
-// Associated functions and methods.
+/// Namespace-specific functions and methods.
 impl Namespace {
     /// Create a new namespace.
     ///
