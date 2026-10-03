@@ -163,8 +163,10 @@ impl Decodeable for NyeFileDirectory {
 
 impl Decodeable for NyeFileEntry {
     fn size(&self) -> u64 {
-        // 8 bytes for the file size, 1 byte for the file type, and the name's size.
-        8 + self.kind.size() + self.name.size()
+        // 8 bytes for the file size, 1 byte for the file type, optional bytes for the resource, and the name's size.
+        8 + self.kind.size()
+            + self.name.size()
+            + self.resource.as_ref().map(Decodeable::size).unwrap_or(0)
     }
 
     async fn decode<F>(file: &mut F, safety: &Safety) -> anyhow::Result<Self>
@@ -178,6 +180,17 @@ impl Decodeable for NyeFileEntry {
         let kind = NyeFileEntryKind::decode(file, safety)
             .await
             .context("Could not read file entry kind.")?;
+
+        let resource = if [NyeFileEntryKind::Box, NyeFileEntryKind::Env].contains(&kind) {
+            Some(
+                Segment::decode(file, safety)
+                    .await
+                    .context("Could not decode the entry's resource.")?,
+            )
+        } else {
+            None
+        };
+
         let name = Segments::decode(file, safety)
             .await
             .context("A file's name was invalid.")?;
@@ -190,7 +203,12 @@ impl Decodeable for NyeFileEntry {
             );
         }
 
-        Ok(NyeFileEntry { name, size, kind })
+        Ok(NyeFileEntry {
+            name,
+            size,
+            resource,
+            kind,
+        })
     }
 }
 

@@ -4,3 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+anyhow = "1.0.104"
+nye-schemas = { path = "../nye-schemas" }
+serde = "1.0.229"
+url = { version = "2.5.8", features = ["serde"] }

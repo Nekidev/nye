@@ -167,14 +167,11 @@ pub struct ManifestExposes {
 
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub lib: Vec<ManifestExposesArtifact>,
-
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub env: Vec<ManifestExposesEnv>,
 }
 
 impl ManifestExposes {
     fn is_empty(&self) -> bool {
-        self.lib.is_empty() && self.lib.is_empty() && self.env.is_empty()
+        self.lib.is_empty() && self.lib.is_empty()
     }
 }
 
@@ -204,11 +201,6 @@ impl Validate for ManifestExposes {
             .context("One or more exposed binaries are incorrectly configured.")?;
         validate_artifact_duplicate_links(&self.lib)
             .context("One or more exposed libraries are incorrectly configured.")?;
-
-        for env in &self.env {
-            env.validate()
-                .context("An exposed environment variable was incorrectly configured.")?;
-        }
 
         Ok(())
     }
@@ -258,69 +250,24 @@ impl Validate for ManifestExposesArtifact {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ManifestExposesEnv {
-    pub name: String,
-    pub value: String,
-
-    /// When empty, it defaults to all targets supported by the package.
-    #[serde(default, skip_serializing_if = "HashSet::is_empty")]
-    pub targets: HashSet<Target>,
-}
-
-impl Validate for ManifestExposesEnv {
-    fn validate(&self) -> anyhow::Result<()> {
-        let regex = Regex::new("^[a-zA-Z0-9_]{1,32}$")
-            .context("This is a bug. The hard-coded validation regex was invalid.")?;
-
-        if !regex.is_match(&self.name) {
-            anyhow::bail!(
-                "Environment variable names must only contain lowercase letters, uppercase letters, numbers, and underscores. `{}` did not fit these requirements.",
-                self.name
-            );
-        }
-
-        if &self.name == "NYE_INSTALLATION" {
-            anyhow::bail!(
-                "NYE_INSTALLATION environment variable cannot be exposed, it's automatically set by nye."
-            );
-        }
-
-        if self.value.len() > 512 {
-            anyhow::bail!(
-                "Environment variable exposed values must not exceed 512 bytes in length. `{}` exceeds this limit.",
-                self.name
-            );
-        }
-
-        for target in &self.targets {
-            if !target.is_supported() {
-                anyhow::bail!(
-                    "The specified target `{target}` for exposed environment variable is not supported by nye."
-                );
-            }
-        }
-
-        Ok(())
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ManifestConsumes {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub env: Vec<ManifestConsumesEnv>,
+
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub r#box: Vec<ManifestConsumesBox>,
 }
 
 impl ManifestConsumes {
     pub fn is_empty(&self) -> bool {
-        self.env.is_empty()
+        self.env.is_empty() && self.r#box.is_empty()
     }
 }
 
 impl Validate for ManifestConsumes {
     fn validate(&self) -> anyhow::Result<()> {
         let mut names = HashSet::new();
-
         for var in &self.env {
             var.validate()
                 .context("A declared consumed environment variable was invalid.")?;
@@ -330,6 +277,19 @@ impl Validate for ManifestConsumes {
             }
 
             names.insert(var.name().clone());
+        }
+
+        let mut names = HashSet::new();
+        for r#box in &self.r#box {
+            r#box
+                .validate()
+                .context("A declared consumed box variable was invalid.")?;
+
+            if names.contains(&r#box.name) {
+                anyhow::bail!("You cannot declare a consumed box variable twice.");
+            }
+
+            names.insert(r#box.name.clone());
         }
 
         Ok(())
@@ -413,6 +373,32 @@ impl Validate for ManifestConsumesEnv {
                         "Consumed environment variables cannot have a value longer than 512 bytes."
                     );
                 }
+            }
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ManifestConsumesBox {
+    pub name: String,
+
+    /// When empty, it defaults to all targets supported by the package.
+    #[serde(default, skip_serializing_if = "HashSet::is_empty")]
+    pub targets: HashSet<Target>,
+}
+
+impl Validate for ManifestConsumesBox {
+    fn validate(&self) -> anyhow::Result<()> {
+        nye_validation::is_kebab_case(&self.name)
+            .context("The consumed box's name must be in kebab case.")?;
+
+        for target in &self.targets {
+            if !target.is_supported() {
+                anyhow::bail!(
+                    "The specified target `{target}` for consumed box is not supported by nye."
+                );
             }
         }
 

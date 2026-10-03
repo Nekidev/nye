@@ -423,8 +423,13 @@ value = "$NYE_INSTALLATION/lib"
 name = "EXPOSED_PATH"
 separator = ":"
 
-[[depends]]
-name = "redis"
-version = "8.0.0"
-targets = ["linux-x86_64"]
-features = [""]
+[[consumes.box]]
+name = "hyprland"
+
+# NYE_NAMESPACE
+# NYE_INSTALLATION
+#     NYE_INSTALLATION_BIN
+#     NYE_INSTALLATION_LIB
+#     NYE_INSTALLATION_ETC
+#     NYE_INSTALLATION_VAR
+#     NYE_INSTALLATION_BOX

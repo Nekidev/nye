@@ -135,9 +135,7 @@ use anyhow::Context;
 use askama::Template;
 use nye_packages::format::NyeFileEntryKind;
 use nye_packages::format::reading::{NyeFileSeekableReader, ReadableSeekable};
-use nye_packages::manifest::{
-    Manifest, ManifestConsumesEnv, ManifestExposesArtifact, ManifestExposesEnv,
-};
+use nye_packages::manifest::{Manifest, ManifestConsumesEnv, ManifestExposesArtifact};
 use nye_utils::time;
 use toasty::Executor;
 use tokio::fs::{self, File};

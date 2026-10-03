@@ -95,7 +95,7 @@ use tokio::io::{AsyncSeek, AsyncSeekExt, AsyncWrite, AsyncWriteExt};
 
 use crate::format::writing::encoding::Encodeable;
 use crate::format::writing::loadable::{Loadable, LoadableWithoutKind, LoadableWrapper};
-use crate::format::{NyeFileEntry, NyeFileEntryKind, NyeFileSignature, Segments};
+use crate::format::{NyeFileEntry, NyeFileEntryKind, NyeFileSignature, Segment, Segments};
 use crate::manifest::Manifest;
 
 pub mod encoding;
@@ -202,6 +202,7 @@ impl NyeFileWriter {
                 name: entry.name,
                 kind: entry.kind,
                 size: 0,
+                resource: entry.resource,
             };
             let bytes = meta.encode();
 
@@ -255,6 +256,7 @@ impl NyeFileWriter {
 pub struct NyeFileWriteableEntry {
     pub name: Segments,
     pub kind: NyeFileEntryKind,
+    pub resource: Option<Segment>,
     loader: Box<dyn LoadableWithoutKind>,
 }
 
@@ -269,9 +271,14 @@ impl NyeFileWriteableEntry {
     /// * `name` - The entry's name.
     /// * `loader` - The entry's file content loader. See the [module's documentation] for
     ///   information on how to create loaders.
-    /// 
+    ///
     /// [module's documentation]: self
-    pub fn new<S, T, K, E>(kind: NyeFileEntryKind, name: S, loader: T) -> anyhow::Result<Self>
+    pub fn new<S, T, K, E>(
+        kind: NyeFileEntryKind,
+        name: S,
+        resource: Option<Segment>,
+        loader: T,
+    ) -> anyhow::Result<Self>
     where
         S: TryInto<Segments, Error = E>,
         T: Loadable<K> + 'static,
@@ -283,12 +290,31 @@ impl NyeFileWriteableEntry {
             .map_err(Into::into)
             .context("Could not parse the entry's name into a segment.")?;
 
+        if kind == NyeFileEntryKind::Box || kind == NyeFileEntryKind::Env {
+            if resource.is_none() {
+                anyhow::bail!(
+                    "The entry's kind was box or env, but it did not have a resource set (those types require it)."
+                );
+            }
+        } else {
+            if resource.is_some() {
+                anyhow::bail!(
+                    "The entry's kind is neither box nor env, but it had a resource set (only box and env files can have one)."
+                );
+            }
+        }
+
         let loader = Box::new(LoadableWrapper {
             inner: loader,
             _phantom: PhantomData::<K>,
         });
 
-        Ok(Self { name, kind, loader })
+        Ok(Self {
+            name,
+            kind,
+            loader,
+            resource,
+        })
     }
 }
 
@@ -302,11 +328,18 @@ mod test {
     async fn test_impl() -> anyhow::Result<()> {
         let file = File::open("busybox").await?;
 
-        NyeFileWriteableEntry::new(NyeFileEntryKind::Bin, "busybox", file.try_clone().await?)?;
-        NyeFileWriteableEntry::new(NyeFileEntryKind::Bin, "busybox", move || file)?;
-        NyeFileWriteableEntry::new(NyeFileEntryKind::Bin, "busybox", File::open("busybox"))?;
-        NyeFileWriteableEntry::new(NyeFileEntryKind::Bin, "busybox", || File::open("busybox"))?;
-        NyeFileWriteableEntry::new(NyeFileEntryKind::Bin, "busybox", async || {
+        NyeFileWriteableEntry::new(
+            NyeFileEntryKind::Bin,
+            "busybox",
+            None,
+            file.try_clone().await?,
+        )?;
+        NyeFileWriteableEntry::new(NyeFileEntryKind::Bin, "busybox", None, move || file)?;
+        NyeFileWriteableEntry::new(NyeFileEntryKind::Bin, "busybox", None, File::open("busybox"))?;
+        NyeFileWriteableEntry::new(NyeFileEntryKind::Bin, "busybox", None, || {
+            File::open("busybox")
+        })?;
+        NyeFileWriteableEntry::new(NyeFileEntryKind::Bin, "busybox", None, async || {
             File::open("busybox").await
         })?;
 

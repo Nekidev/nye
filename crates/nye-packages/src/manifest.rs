@@ -8,37 +8,37 @@
 //! For example, a project manifest has `targets.*` configurations and things like `shared`, while
 //! package manifests have a single `package.target` instead. Artifacts exposed under multiple
 //! links are expanded into one item per link.
-//! 
+//!
 //! Package manifests are not meant to be written by humans. They may be read by humans, though, so
 //! they're serialized into prettified TOML when creating package files. They are held in a special
 //! section within a package file, not as a regular entry.
-//! 
+//!
 //! # Learn by Example
-//! 
+//!
 //! As stated above, package manifests are aimed at a single target, which is specified in the
 //! `[package]` section.
-//! 
+//!
 //! ```toml
 //! version = 1
-//! 
+//!
 //! [package]
 //! name = "example"
 //! version = "1.1.1"
 //! target = "linux-x86_64"
 //! ```
-//! 
+//!
 //! Exposed and consumed resources are defined in a similar way to in project manifests.
-//! 
+//!
 //! ```toml
 //! [exposes.bin]
 //! link = "example"
 //! path = "example"
-//! 
+//!
 //! [exposes.lib]
 //! link = "example.so"
 //! path = "example.so"
 //! ```
-//! 
+//!
 //! Unlike project manifests, multiple links cannot be defined as an array, and both `link` and
 //! `path` are required. Since package files are single-target, no `targets` field exists.
 
@@ -90,17 +90,12 @@ pub struct ManifestExposes {
     /// The package's exposed libraries.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub lib: Vec<ManifestExposesArtifact>,
-
-    /// The package's exposed environment variables.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub env: Vec<ManifestExposesEnv>,
 }
 
 impl ManifestExposes {
-    /// `true` when all [`ManifestExposes::bin`], [`ManifestExposes::lib`], and
-    /// [`ManifestExposes::env`] are empty.
+    /// `true` when all [`ManifestExposes::bin`] and [`ManifestExposes::lib`] are empty.
     fn is_empty(&self) -> bool {
-        self.bin.is_empty() && self.lib.is_empty() && self.env.is_empty()
+        self.bin.is_empty() && self.lib.is_empty()
     }
 }
 
@@ -121,34 +116,21 @@ pub struct ManifestExposesArtifact {
     pub path: PathBuf,
 }
 
-/// An exposed environment variable value.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ManifestExposesEnv {
-    /// The name of the environment variable.
-    ///
-    /// It must follow the following rules:
-    /// * Be at least 1 character long,
-    /// * Be no more than 32 characters long,
-    /// * Not be `NYE_INSTALLATION`,
-    /// * Be composed of only ASCII letters, digits, and underscores.
-    pub name: String,
-    /// The value exposed by the environment variable.
-    ///
-    /// It must not be longer than 512 characters.
-    pub value: String,
-}
-
 /// A package's consumed environment variables.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ManifestConsumes {
     /// The consumed environment variables.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub env: Vec<ManifestConsumesEnv>,
+
+    /// The consumed boxes.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub r#box: Vec<ManifestConsumesBox>,
 }
 
 impl ManifestConsumes {
     pub fn is_empty(&self) -> bool {
-        self.env.is_empty()
+        self.env.is_empty() && self.r#box.is_empty()
     }
 }
 
@@ -188,4 +170,11 @@ impl ManifestConsumesEnv {
             ManifestConsumesEnv::Value { name, .. } => name,
         }
     }
+}
+
+/// A consumed box.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ManifestConsumesBox {
+    /// The box's name.
+    pub name: String,
 }

@@ -30,6 +30,8 @@ impl Encodeable for NyeFileEntryKind {
             Self::Lib => 1,
             Self::Etc => 2,
             Self::Var => 3,
+            Self::Env => 4,
+            Self::Box => 5,
         };
 
         vec![byte]

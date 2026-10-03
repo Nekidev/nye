@@ -69,6 +69,9 @@
 //!     * `1` - A library file (`lib/`).
 //!     * `2` - An editable text configuration file (`etc/`).
 //!     * `3` - A variable data file (`var/`).
+//!     * `4` - An environment variable's value.
+//!     * `5` - A file exposed in a box.
+//! * `resource` (`segment`): The name of the resource the file belongs to, if `type in [4, 5]`.
 //! * `name` (`segments`): The file's name, using nye's segment encoding.
 //!
 //! #### Segments Encoding
@@ -264,6 +267,9 @@ pub struct NyeFileEntry {
     pub size: u64,
     /// The type of file.
     pub kind: NyeFileEntryKind,
+    /// The resource this file belongs to, if kind is either [`NyeFileEntryKind::Env`] or
+    /// [`NyeFileEntryKind::Box`].
+    pub resource: Option<Segment>,
 }
 
 /// A file's artifact type.
@@ -277,6 +283,10 @@ pub enum NyeFileEntryKind {
     Etc,
     /// A variable data file.
     Var,
+    /// An exposed file in a box.
+    Box,
+    /// An exposed environment variable value file.
+    Env,
 }
 
 impl Display for NyeFileEntryKind {
@@ -286,6 +296,8 @@ impl Display for NyeFileEntryKind {
             NyeFileEntryKind::Lib => write!(f, "lib"),
             NyeFileEntryKind::Etc => write!(f, "etc"),
             NyeFileEntryKind::Var => write!(f, "var"),
+            NyeFileEntryKind::Box => write!(f, "box"),
+            NyeFileEntryKind::Env => write!(f, "env"),
         }
     }
 }

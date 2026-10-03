@@ -39,6 +39,22 @@
 //!
 //! This package manages installing, uninstalling, and administrating package installations in
 //! namespaces. Everything related to those operations is in the [`installations`] module.
+//! 
+//! ## Layouts
+//! 
+//! Each namespace has at least the following directories and files:
+//! 
+//! * `bin` - Wrappers exposing package-provided binaries.
+//! * `lib` - Symlinks to package-provided libraries.
+//! * `env` - Environment variable file values.
+//! * `etc` - Package-provided editable text configuration files.
+//! * `box` - Package-provided shared data.
+//! * `pkg` - Package data.
+//!     * `pkg/state` - Package state (SQLite database).
+//!     * `pkg/store` - Package data store.
+//! 
+//! Additionally, user-specific namespaces have a `room` directory. However, those are not created
+//! by the [`Namespace`] API and are on the caller to create them.
 
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
@@ -91,8 +107,8 @@ impl Namespace {
         let dirs = [
             path.as_ref().join("bin"),
             path.as_ref().join("lib"),
-            path.as_ref().join("var"),
             path.as_ref().join("etc"),
+            path.as_ref().join("box"),
             path.as_ref().join("env"),            
             path.as_ref().join("pkg").join("store"),
         ];
@@ -235,8 +251,8 @@ impl Namespace {
         let paths = [
             self.path.join("bin"),
             self.path.join("lib"),
-            self.path.join("var"),
             self.path.join("etc"),
+            self.path.join("box"),
             self.path.join("env"),
             self.path.join("pkg").join("state"),
             self.path.join("pkg").join("store"),

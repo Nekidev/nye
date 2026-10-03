@@ -8,7 +8,7 @@ use nye_schemas::targets::Target;
 
 use crate::format::reading::safety::Safety;
 use crate::format::{NyeFileDirectory, NyeFileEntryKind, Segments};
-use crate::manifest::{Manifest, ManifestConsumesEnv, ManifestExposesArtifact, ManifestExposesEnv};
+use crate::manifest::{Manifest, ManifestConsumesEnv, ManifestExposesArtifact};
 
 /// Validates a package file manifest against a package file directory.
 ///
@@ -76,19 +76,11 @@ fn validate_package_exposes(
     if manifest.exposes.lib.len() as u64 > safety.max_exposed_libs {
         anyhow::bail!("The manifest exposed more libraries than allowed.");
     }
-    if manifest.exposes.env.len() as u64 > safety.max_exposed_vars {
-        anyhow::bail!("The manifest exposed more environment variables than allowed.");
-    }
 
     validate_exposed_artifacts(&manifest.exposes.bin, NyeFileEntryKind::Bin, directory, safety)
         .context("One or more exposed binaries were misconfigured.")?;
     validate_exposed_artifacts(&manifest.exposes.lib, NyeFileEntryKind::Lib, directory, safety)
         .context("One or more exposed binaries were misconfigured.")?;
-
-    for var in &manifest.exposes.env {
-        validate_exposed_var(var, safety)
-            .context("An exposed environment variable was misconfigured.")?;
-    }
 
     Ok(())
 }
@@ -159,25 +151,16 @@ fn validate_exposed_artifact(
     Ok(())
 }
 
-fn validate_exposed_var(var: &ManifestExposesEnv, safety: &Safety) -> anyhow::Result<()> {
-    if var.name.len() as u64 > safety.max_var_name_size {
-        anyhow::bail!("The exposed env var's name is longer than allowed.");
-    }
-    if var.value.len() as u64 > safety.max_var_value_size {
-        anyhow::bail!("The exposed env var's value is longer than allowed.");
-    }
-
-    if var.name.is_empty() {
-        anyhow::bail!("The exposed variable's name was empty.");
-    }
-
-    nye_validation::is_env_var_name(&var.name)
-        .context("The exposed environment variable's name was not valid.")?;
+fn validate_package_consumes(manifest: &Manifest, safety: &Safety) -> anyhow::Result<()> {
+    validate_package_consumes_env(manifest, safety)
+        .context("The package's consumed env vars were invalid.")?;
+    validate_package_consumes_box(manifest, safety)
+        .context("The package's consumed boxes were invalid.")?;
 
     Ok(())
 }
 
-fn validate_package_consumes(manifest: &Manifest, safety: &Safety) -> anyhow::Result<()> {
+fn validate_package_consumes_env(manifest: &Manifest, safety: &Safety) -> anyhow::Result<()> {
     for var in &manifest.consumes.env {
         if var.name().is_empty() {
             anyhow::bail!("A consumed environment variable's name was empty.");
@@ -208,6 +191,21 @@ fn validate_package_consumes(manifest: &Manifest, safety: &Safety) -> anyhow::Re
                 }
             }
         }
+    }
+
+    Ok(())
+}
+
+fn validate_package_consumes_box(manifest: &Manifest, safety: &Safety) -> anyhow::Result<()> {
+    for r#box in &manifest.consumes.r#box {
+        if r#box.name.is_empty() {
+            anyhow::bail!("A consumed box name was empty.");
+        }
+        if r#box.name.len() as u64 > safety.max_box_name_size {
+            anyhow::bail!("A consumed box's name was longer than allowed.");
+        }
+        nye_validation::is_kebab_case(&r#box.name)
+            .context("A consumed box did not have a valid name.")?;
     }
 
     Ok(())

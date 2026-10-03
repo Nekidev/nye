@@ -48,16 +48,8 @@ impl projects::ManifestExposes {
     pub fn into_package_version(self, target: Target) -> packages::ManifestExposes {
         let bin = collect_artifacts_for_target(self.bin, target);
         let lib = collect_artifacts_for_target(self.lib, target);
-        let env = self
-            .env
-            .into_iter()
-            .map(|e| packages::ManifestExposesEnv {
-                name: e.name,
-                value: e.value,
-            })
-            .collect();
 
-        packages::ManifestExposes { bin, lib, env }
+        packages::ManifestExposes { bin, lib }
     }
 }
 
@@ -86,8 +78,9 @@ impl projects::ManifestConsumes {
     /// specific target.
     pub fn into_package_version(self, target: Target) -> packages::ManifestConsumes {
         let env = collect_consumed_env(self.env, target);
+        let r#box = collect_consumed_box(self.r#box, target);
 
-        packages::ManifestConsumes { env }
+        packages::ManifestConsumes { env, r#box }
     }
 }
 
@@ -109,6 +102,17 @@ fn collect_consumed_env(
                 targets: _,
             } => packages::ManifestConsumesEnv::Value { name, value },
         })
+        .collect()
+}
+
+fn collect_consumed_box(
+    boxes: Vec<projects::ManifestConsumesBox>,
+    target: Target,
+) -> Vec<packages::ManifestConsumesBox> {
+    boxes
+        .into_iter()
+        .filter(|b| b.targets.is_empty() || b.targets.contains(&target))
+        .map(|b| packages::ManifestConsumesBox { name: b.name })
         .collect()
 }
 
@@ -282,6 +286,8 @@ impl Project {
         //
         // This vector holds (source_root, file_kind, file_name_in_source) for easier decoupling
         // down in this function.
+        //
+        // TODO: Add support for loading box and env files.
         let mut pending = vec![
             (target_source.clone(), NyeFileEntryKind::Bin, PathBuf::new()),
             (target_source.clone(), NyeFileEntryKind::Lib, PathBuf::new()),
@@ -354,6 +360,7 @@ impl Project {
                     let entry = NyeFileWriteableEntry::new(
                         kind,
                         entry.file_name().display().to_string(),
+                        None,
                         async move || {
                             let _ = event_tx_copy.send(ProgressEvent::Loading {
                                 index: loaded.fetch_add(1, Ordering::SeqCst),
@@ -387,7 +394,7 @@ impl Project {
 
         let _ = event_tx.send(ProgressEvent::Done { total });
         drop(event_tx);
-        
+
         event_forwarder
             .await
             .context("The event-forwarding task panicked.")?

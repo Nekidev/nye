@@ -45,6 +45,8 @@ pub struct Safety {
     pub max_var_value_size: u64,
     /// The max consumed environment variable separator length.
     pub max_var_separator_size: u64,
+    /// The max length of a box name.
+    pub max_box_name_size: u64,
     /// Restricts the target to the current system's target.
     pub only_current_target: bool,
     /// Restrict the targets to nye-supported targets.
@@ -69,6 +71,7 @@ impl Default for Safety {
             max_var_name_size: 32,
             max_var_value_size: 512,
             max_var_separator_size: 8,
+            max_box_name_size: 32,
             only_current_target: true,
             only_supported_targets: true,
         }

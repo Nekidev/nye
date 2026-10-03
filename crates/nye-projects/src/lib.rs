@@ -58,8 +58,8 @@ pub mod packaging;
 
 pub use builder::ProjectBuilder;
 pub use manifest::{
-    Manifest, ManifestConsumes, ManifestConsumesEnv, ManifestExposes, ManifestExposesArtifact,
-    ManifestExposesEnv, ManifestPackage, ManifestTarget, TargetOrShared,
+    Manifest, ManifestConsumes, ManifestConsumesBox, ManifestConsumesEnv, ManifestExposes,
+    ManifestExposesArtifact, ManifestPackage, ManifestTarget, TargetOrShared,
 };
 
 /// A project in the local filesystem.
